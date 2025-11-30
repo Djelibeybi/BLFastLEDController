@@ -567,6 +567,19 @@ void handleFactoryReset(AsyncWebServerRequest *request)
     restartRequestTime = millis();
 }
 
+void handleReboot(AsyncWebServerRequest *request)
+{
+    if (!isAuthorized(request))
+        return request->requestAuthentication();
+
+    LogSerial.println(F("[Reboot] User requested reboot..."));
+
+    request->send(200, "text/plain", "Rebooting...");
+
+    shouldRestart = true;
+    restartRequestTime = millis();
+}
+
 void handleUploadConfigFileData(AsyncWebServerRequest *request, const String &filename,
                                 size_t index, uint8_t *data, size_t len, bool final)
 {
@@ -651,6 +664,7 @@ void setupWebserver()
     webServer.on("/webserial", HTTP_GET, handleWebSerialPage);
     webServer.on("/printerList", HTTP_GET, handlePrinterList);
     webServer.on("/factoryreset", HTTP_GET, handleFactoryReset);
+    webServer.on("/reboot", HTTP_GET, handleReboot);
     webServer.on("/api/ledtest", HTTP_POST, handleLedTest);
     webServer.on("/configrestore", HTTP_POST, [](AsyncWebServerRequest *request)
                  {
