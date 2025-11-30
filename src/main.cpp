@@ -45,9 +45,6 @@ void setup()
     Serial.begin(115200);
     delay(100);
 
-    // Initialize Improv Serial for WiFi provisioning via ESP Web Tools
-    setupImprovSerial();
-
     Serial.println(F("Initializing"));
     Serial.println(ESP.getFreeHeap());
     Serial.println("");
@@ -59,6 +56,7 @@ void setup()
 
     setupFileSystem();
     loadFileSystem();
+
     Serial.println(F(""));
 
     setupRelay();
@@ -73,8 +71,12 @@ void setup()
 
     if (strlen(globalVariables.SSID) == 0 || strlen(globalVariables.APPW) == 0)
     {
-        Serial.println(F("SSID or password is missing. Please connect to BLFLC_AP to configure your WiFi settings."));
+        Serial.println(F("SSID or password is missing. Starting Improv Serial for WiFi provisioning."));
         setLedColor(CRGB(100, 0, 100)); // PINK
+
+        // Initialize Improv Serial for WiFi provisioning via ESP Web Tools
+        setupImprovSerial();
+
         startAPMode();
         setupWebserver();
         return;

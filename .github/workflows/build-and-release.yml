@@ -20,6 +20,13 @@ jobs:
         with:
           fetch-depth: 0  # Full history for changelog generation
 
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.platformio/.cache
+          key: ${{ runner.os }}-pio
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -122,6 +129,10 @@ jobs:
       contents: read
       pages: write
       id-token: write
+
+    concurrency:
+      group: "pages"
+      cancel-in-progress: false
 
     environment:
       name: github-pages
