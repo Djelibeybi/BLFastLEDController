@@ -601,6 +601,7 @@
                         <button type="button" onclick="location.href='/fwupdate'">Firmware Update</button>
                         <button type="button" onclick="location.href='/backuprestore'">backup & Restore</button>
                         <button type="button" onclick="window.open('/webserial','_blank')">Web Serial Log</button>
+                        <button type="button" style="background-color: #dc3545;" onclick="confirmReboot()">Reboot Device</button>
                     </div>
                 </details>
                 <button type="submit">Save Configuration</button>
@@ -967,6 +968,33 @@ function testLeds() {
     };
     xhr.open('POST', '/api/ledtest', true);
     xhr.send();
+}
+
+// Reboot device function
+function confirmReboot() {
+    if (confirm("Are you sure you want to reboot the device?")) {
+        var xhr = new XMLHttpRequest();
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState === 4) {
+                if (xhr.status === 200) {
+                    alertToast("info", "Rebooting device...");
+                    setTimeout(function() {
+                        location.reload();
+                    }, 5000);
+                } else {
+                    alertToast("error", "Failed to reboot device");
+                }
+            }
+        };
+        xhr.onerror = function() {
+            alertToast("info", "Device is rebooting...");
+            setTimeout(function() {
+                location.reload();
+            }, 5000);
+        };
+        xhr.open('GET', '/reboot', true);
+        xhr.send();
+    }
 }
 
         window.onload = function () {
