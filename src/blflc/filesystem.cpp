@@ -90,10 +90,10 @@ void saveFileSystem()
     // LED Hardware Configuration
     json["ledChipType"] = printerConfig.ledConfig.chipType;
     json["ledColorOrder"] = printerConfig.ledConfig.colorOrder;
+    json["ledWPlacement"] = printerConfig.ledConfig.wPlacement;
     json["ledCount"] = printerConfig.ledConfig.ledCount;
     json["ledDataPin"] = printerConfig.ledConfig.dataPin;
     json["ledClockPin"] = printerConfig.ledConfig.clockPin;
-    json["ledIsRGBW"] = printerConfig.ledConfig.isRGBW;
 
     // Pattern settings
     json["runningPattern"] = printerConfig.runningPattern;
@@ -229,10 +229,10 @@ void loadFileSystem()
         // LED Hardware Configuration (with defaults for migration)
         printerConfig.ledConfig.chipType = json["ledChipType"] | CHIP_WS2812B;
         printerConfig.ledConfig.colorOrder = json["ledColorOrder"] | ORDER_GRB;
+        printerConfig.ledConfig.wPlacement = json["ledWPlacement"] | W_PLACEMENT_3;
         printerConfig.ledConfig.ledCount = json["ledCount"] | 30;
         printerConfig.ledConfig.dataPin = json["ledDataPin"] | 16;
         printerConfig.ledConfig.clockPin = json["ledClockPin"] | 0;
-        printerConfig.ledConfig.isRGBW = json["ledIsRGBW"] | false;
 
         // Pattern settings (with defaults for migration)
         printerConfig.runningPattern = json["runningPattern"] | PATTERN_SOLID;

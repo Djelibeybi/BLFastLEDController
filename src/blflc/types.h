@@ -17,18 +17,23 @@ extern "C"
         CHIP_WS2814_RGBW = 6
     };;
 
-    // Color order options
+    // Color order options (RGB channel arrangement)
     enum LedColorOrder {
         ORDER_GRB = 0,   // WS2812B default
         ORDER_RGB = 1,
         ORDER_BRG = 2,
         ORDER_RBG = 3,
         ORDER_BGR = 4,
-        ORDER_GBR = 5,
-        ORDER_GRBW = 6,  // SK6812 RGBW
-        ORDER_RGBW = 7,
-        ORDER_RWGB = 8   // WS2814 RGBW
-    };;
+        ORDER_GBR = 5
+    };
+
+    // White channel placement for RGBW strips (maps to FastLED EOrderW)
+    enum WhitePlacement {
+        W_PLACEMENT_0 = 0,  // W is 1st byte
+        W_PLACEMENT_1 = 1,  // W is 2nd byte
+        W_PLACEMENT_2 = 2,  // W is 3rd byte
+        W_PLACEMENT_3 = 3   // W is 4th byte (default)
+    };
 
     // LED pattern effects
     enum LedPattern {
@@ -50,10 +55,10 @@ extern "C"
     typedef struct LedConfigStruct {
         uint8_t chipType = CHIP_WS2812B;
         uint8_t colorOrder = ORDER_GRB;
+        uint8_t wPlacement = W_PLACEMENT_3;  // W channel position for RGBW strips
         uint16_t ledCount = 30;
         uint8_t dataPin = 16;
         uint8_t clockPin = 0;  // For APA102 only
-        bool isRGBW = false;
     } LedConfig;
 
 

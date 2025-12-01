@@ -99,7 +99,7 @@
                         <br>
                         <div class="input-group">
                             <label for="ledChipType">LED Type</label>
-                            <select id="ledChipType" name="ledChipType">
+                            <select id="ledChipType" name="ledChipType" onchange="updateChipTypeOptions();">
                                 <option value="3">APA102</option>
                                 <option value="5">NeoPixel</option>
                                 <option value="1">SK6812</option>
@@ -111,18 +111,25 @@
                         </div>
                         <div class="input-group">
                             <label for="ledColorOrder">Color Order</label>
-                            <select id="ledColorOrder" name="ledColorOrder">
+                            <select id="ledColorOrder" name="ledColorOrder" onchange="updateWPlacement()">
                                 <option value="0">GRB</option>
                                 <option value="1">RGB</option>
                                 <option value="2">BRG</option>
                                 <option value="3">RBG</option>
                                 <option value="4">BGR</option>
                                 <option value="5">GBR</option>
-                                <option value="6">GRBW</option>
-                                <option value="7">RGBW</option>
-                                <option value="8">RWGB</option>
                             </select>
                         </div>
+                        <div class="input-group" id="whiteSwapGroup" style="display: none;">
+                            <label for="ledWhiteSwap">Swap White Channel</label>
+                            <select id="ledWhiteSwap" name="ledWhiteSwap" onchange="updateWPlacement()">
+                                <option value="none">None (W is 4th channel)</option>
+                                <option value="R">W & R</option>
+                                <option value="G">W & G</option>
+                                <option value="B">W & B</option>
+                            </select>
+                        </div>
+                        <input type="hidden" id="ledWPlacement" name="ledWPlacement" value="3">
                         <div class="input-group">
                             <label for="ledCount">Number of LEDs (1-300)</label>
                             <input type="number" id="ledCount" name="ledCount" min="1" max="300" value="30">
@@ -132,11 +139,24 @@
                             <select id="ledDataPin" name="ledDataPin">
                                 <option value="2">GPIO 2</option>
                                 <option value="4">GPIO 4</option>
-                                <option value="5">GPIO 4</option>
+                                <option value="5">GPIO 5</option>
                                 <option value="12">GPIO 12</option>
                                 <option value="13">GPIO 13</option>
                                 <option value="16" selected>GPIO 16</option>
                                 <option value="17">GPIO 17</option>
+                                <option value="18">GPIO 18</option>
+                            </select>
+                        </div>
+                        <div class="input-group" id="clockPinGroup" style="display: none;">
+                            <label for="ledClockPin">Clock Pin (GPIO)</label>
+                            <select id="ledClockPin" name="ledClockPin">
+                                <option value="2">GPIO 2</option>
+                                <option value="4">GPIO 4</option>
+                                <option value="5">GPIO 5</option>
+                                <option value="12">GPIO 12</option>
+                                <option value="13">GPIO 13</option>
+                                <option value="16">GPIO 16</option>
+                                <option value="17" selected>GPIO 17</option>
                                 <option value="18">GPIO 18</option>
                             </select>
                         </div>
@@ -809,6 +829,90 @@
                 div.style.display = 'none';
             }
         }
+        // Check if the selected LED chip type is RGBW
+        function isRgbwChipType() {
+            const chipType = parseInt(document.getElementById('ledChipType').value);
+            // CHIP_SK6812_RGBW = 2, CHIP_WS2814_RGBW = 6
+            return chipType === 2 || chipType === 6;
+        }
+
+        // Check if the selected LED chip type is APA102 (requires clock pin)
+        function isApa102ChipType() {
+            const chipType = parseInt(document.getElementById('ledChipType').value);
+            // CHIP_APA102 = 3
+            return chipType === 3;
+        }
+
+        // Update visibility of chip-type-specific options
+        function updateChipTypeOptions() {
+            // Show/hide white channel swap for RGBW chips
+            const whiteSwapGroup = document.getElementById('whiteSwapGroup');
+            if (isRgbwChipType()) {
+                whiteSwapGroup.style.display = '';
+            } else {
+                whiteSwapGroup.style.display = 'none';
+                document.getElementById('ledWhiteSwap').value = 'none';
+                document.getElementById('ledWPlacement').value = '3';
+            }
+
+            // Show/hide clock pin for APA102
+            const clockPinGroup = document.getElementById('clockPinGroup');
+            if (isApa102ChipType()) {
+                clockPinGroup.style.display = '';
+            } else {
+                clockPinGroup.style.display = 'none';
+            }
+        }
+
+        // Color order position lookup tables
+        // Each color order defines positions: [R_pos, G_pos, B_pos]
+        const colorOrderPositions = {
+            0: { R: 1, G: 0, B: 2 }, // GRB: G=0, R=1, B=2
+            1: { R: 0, G: 1, B: 2 }, // RGB: R=0, G=1, B=2
+            2: { R: 1, G: 2, B: 0 }, // BRG: B=0, R=1, G=2
+            3: { R: 0, G: 2, B: 1 }, // RBG: R=0, B=1, G=2
+            4: { R: 2, G: 1, B: 0 }, // BGR: B=0, G=1, R=2
+            5: { R: 2, G: 0, B: 1 }  // GBR: G=0, B=1, R=2
+        };
+
+        // Compute wPlacement (W0-W3) from color order and swap selection
+        function updateWPlacement() {
+            const colorOrder = parseInt(document.getElementById('ledColorOrder').value);
+            const swapWith = document.getElementById('ledWhiteSwap').value;
+
+            let wPlacement = 3; // Default: W is 4th channel
+
+            if (swapWith !== 'none' && colorOrderPositions[colorOrder]) {
+                const positions = colorOrderPositions[colorOrder];
+                wPlacement = positions[swapWith]; // Get position of the color being swapped with W
+            }
+
+            document.getElementById('ledWPlacement').value = wPlacement;
+        }
+
+        // Reverse: set swap dropdown from wPlacement value (for loading config)
+        function setSwapFromWPlacement(colorOrder, wPlacement) {
+            if (wPlacement === 3) {
+                document.getElementById('ledWhiteSwap').value = 'none';
+                return;
+            }
+
+            const positions = colorOrderPositions[colorOrder];
+            if (!positions) {
+                document.getElementById('ledWhiteSwap').value = 'none';
+                return;
+            }
+
+            // Find which color (R, G, or B) is at the wPlacement position
+            for (const [color, pos] of Object.entries(positions)) {
+                if (pos === wPlacement) {
+                    document.getElementById('ledWhiteSwap').value = color;
+                    return;
+                }
+            }
+            document.getElementById('ledWhiteSwap').value = 'none';
+        }
+
         function hasP1() {
             if (document.getElementById('p1Printer').checked) {
                 document.getElementById("doorSwitch").checked = false;
@@ -867,8 +971,15 @@ function updateConfig() {
                     // LED Strip Configuration
                     document.getElementById('ledChipType').value = getSafeNumber(configData.ledChipType, 0);
                     document.getElementById('ledColorOrder').value = getSafeNumber(configData.ledColorOrder, 0);
+                    var wPlacement = getSafeNumber(configData.ledWPlacement, 3);
+                    document.getElementById('ledWPlacement').value = wPlacement;
+                    // Set the swap dropdown based on color order and wPlacement
+                    setSwapFromWPlacement(getSafeNumber(configData.ledColorOrder, 0), wPlacement);
                     document.getElementById('ledCount').value = getSafeNumber(configData.ledCount, 30);
                     document.getElementById('ledDataPin').value = getSafeNumber(configData.ledDataPin, 16);
+                    document.getElementById('ledClockPin').value = getSafeNumber(configData.ledClockPin, 17);
+                    // Update chip-type-specific option visibility
+                    updateChipTypeOptions();
                     document.getElementById('progressBarEnabled').checked = configData.progressBarEnabled !== false;
                     document.getElementById('progressBgRGB').value = configData.progressBgRGB || '#000000';
 

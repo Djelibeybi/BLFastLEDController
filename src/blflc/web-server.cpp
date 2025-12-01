@@ -106,8 +106,10 @@ void handleGetConfig(AsyncWebServerRequest *request)
     // LED Hardware Configuration
     doc["ledChipType"] = printerConfig.ledConfig.chipType;
     doc["ledColorOrder"] = printerConfig.ledConfig.colorOrder;
+    doc["ledWPlacement"] = printerConfig.ledConfig.wPlacement;
     doc["ledCount"] = printerConfig.ledConfig.ledCount;
     doc["ledDataPin"] = printerConfig.ledConfig.dataPin;
+    doc["ledClockPin"] = printerConfig.ledConfig.clockPin;
     doc["progressBarEnabled"] = printerConfig.progressBarEnabled;
     doc["progressBgRGB"] = printerConfig.progressBarBackground.RGBhex;
 
@@ -282,6 +284,7 @@ void handleSubmitConfig(AsyncWebServerRequest *request)
     // LED Hardware Configuration
     printerConfig.ledConfig.chipType = getSafeParamInt(request, "ledChipType", CHIP_WS2812B);
     printerConfig.ledConfig.colorOrder = getSafeParamInt(request, "ledColorOrder", ORDER_GRB);
+    printerConfig.ledConfig.wPlacement = getSafeParamInt(request, "ledWPlacement", W_PLACEMENT_3);
     printerConfig.ledConfig.ledCount = constrain(getSafeParamInt(request, "ledCount", 30), 1, 300);
     printerConfig.ledConfig.dataPin = getSafeParamInt(request, "ledDataPin", 16);
     printerConfig.ledConfig.clockPin = getSafeParamInt(request, "ledClockPin", 0);
