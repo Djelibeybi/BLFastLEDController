@@ -311,7 +311,34 @@ bool parsePrintProgress(JsonDocument& msg, bool& changed)
     if (printerVariables.printProgress == newProgress)
         return false;
 
+    uint8_t oldProgress = printerVariables.printProgress;
     printerVariables.printProgress = newProgress;
+
+    // Infer RUNNING state from active print progress (for P1 printers that don't send gcode_state)
+    if (newProgress > 0 && newProgress < 100 && printerVariables.gcodeState != "RUNNING")
+    {
+        printerVariables.gcodeState = "RUNNING";
+        printerVariables.overridestage = 999;  // Reset HMS override
+        printerConfig.inactivityStartms = millis();
+        if (printerConfig.debugOnChange || printerConfig.debugging)
+        {
+            LogSerial.println(F("[MQTT] Inferred RUNNING state from print progress"));
+        }
+    }
+
+    // Infer FINISH state when progress reaches 100% (for P1 printers)
+    if (newProgress == 100 && oldProgress < 100 && printerVariables.gcodeState == "RUNNING")
+    {
+        printerVariables.gcodeState = "FINISH";
+        printerVariables.finished = true;
+        printerVariables.waitingForDoor = true;
+        printerConfig.finishStartms = millis();
+        printerConfig.finish_check = true;
+        if (printerConfig.debugOnChange || printerConfig.debugging)
+        {
+            LogSerial.println(F("[MQTT] Inferred FINISH state from 100% progress"));
+        }
+    }
 
     if (printerConfig.debugOnChange || printerConfig.debugging)
     {
