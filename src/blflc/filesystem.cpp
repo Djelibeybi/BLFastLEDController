@@ -117,6 +117,7 @@ void saveFileSystem()
 
     // Progress bar settings
     json["progressBarEnabled"] = printerConfig.progressBarEnabled;
+    json["progressRGB"] = printerConfig.progressBarColor.RGBhex;
     json["progressBgRGB"] = printerConfig.progressBarBackground.RGBhex;
 
     // Relay settings
@@ -255,7 +256,8 @@ void loadFileSystem()
         printerConfig.bedTempPattern = json["bedTempPattern"] | PATTERN_BREATHING;
 
         // Progress bar settings
-        printerConfig.progressBarEnabled = json["progressBarEnabled"] | true;
+        printerConfig.progressBarEnabled = json["progressBarEnabled"] | false;
+        printerConfig.progressBarColor = hex2rgb(json["progressRGB"] | "#FFFFFF");
         printerConfig.progressBarBackground = hex2rgb(json["progressBgRGB"] | "#000000");
 
         // Relay settings (with defaults for migration)

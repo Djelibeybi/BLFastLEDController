@@ -111,6 +111,7 @@ void handleGetConfig(AsyncWebServerRequest *request)
     doc["ledDataPin"] = printerConfig.ledConfig.dataPin;
     doc["ledClockPin"] = printerConfig.ledConfig.clockPin;
     doc["progressBarEnabled"] = printerConfig.progressBarEnabled;
+    doc["progressRGB"] = printerConfig.progressBarColor.RGBhex;
     doc["progressBgRGB"] = printerConfig.progressBarBackground.RGBhex;
 
     // LED Behaviour
@@ -311,7 +312,8 @@ void handleSubmitConfig(AsyncWebServerRequest *request)
     printerConfig.bedTempPattern = getSafeParamInt(request, "bedTempPattern", PATTERN_BREATHING);
 
     // Progress bar settings
-    printerConfig.progressBarEnabled = request->hasParam("progressBarEnabled", false);
+    printerConfig.progressBarEnabled = request->hasParam("progressBarEnabled", true);
+    printerConfig.progressBarColor = hex2rgb(getSafeParamValue(request, "progressRGB", "#FFFFFF"));
     printerConfig.progressBarBackground = hex2rgb(getSafeParamValue(request, "progressBgRGB", "#000000"));
 
     // Relay settings

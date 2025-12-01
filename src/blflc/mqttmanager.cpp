@@ -151,6 +151,7 @@ void setupMqttFilter(JsonDocument& filter)
     filter["print"]["stg_cur"] = true;
     filter["print"]["print_error"] = true;
     filter["print"]["wifi_signal"] = true;
+    filter["print"]["mc_percent"] = true;
     filter["system"]["command"] = true;
     filter["system"]["led_mode"] = true;
 }
@@ -283,6 +284,31 @@ bool parseStage(JsonDocument& msg, bool& changed)
     {
         LogSerial.print(F("[MQTT] update - stg_cur now: "));
         LogSerial.println(printerVariables.stage);
+    }
+
+    changed = true;
+    return true;
+}
+
+// Parse print progress percentage (mc_percent)
+bool parsePrintProgress(JsonDocument& msg, bool& changed)
+{
+    if (msg["print"]["mc_percent"].isNull())
+        return false;
+
+    uint8_t newProgress = msg["print"]["mc_percent"].as<uint8_t>();
+    if (newProgress > 100) newProgress = 100;  // Clamp to valid range
+
+    if (printerVariables.printProgress == newProgress)
+        return false;
+
+    printerVariables.printProgress = newProgress;
+
+    if (printerConfig.debugOnChange || printerConfig.debugging)
+    {
+        LogSerial.print(F("[MQTT] update - print progress: "));
+        LogSerial.print(printerVariables.printProgress);
+        LogSerial.println(F("%"));
     }
 
     changed = true;
@@ -617,6 +643,7 @@ void ParseCallback(char *topic, byte *payload, unsigned int length)
     // Parse each section of the message
     parseDoorStatus(messageobject, changed);
     parseStage(messageobject, changed);
+    parsePrintProgress(messageobject, changed);
     parseGcodeState(messageobject, changed);
     parsePauseCommand(messageobject, changed);
     parseLightsReport(messageobject, changed);

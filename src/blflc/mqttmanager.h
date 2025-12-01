@@ -55,6 +55,7 @@ void handleDoorClosed();
 // Parser functions
 bool parseDoorStatus(JsonDocument& msg, bool& changed);
 bool parseStage(JsonDocument& msg, bool& changed);
+bool parsePrintProgress(JsonDocument& msg, bool& changed);
 bool parseGcodeState(JsonDocument& msg, bool& changed);
 bool parsePauseCommand(JsonDocument& msg, bool& changed);
 bool parseLightsReport(JsonDocument& msg, bool& changed);

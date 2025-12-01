@@ -196,7 +196,8 @@ extern "C"
         uint8_t bedTempPattern = PATTERN_BREATHING;
 
         // Progress bar settings
-        bool progressBarEnabled = true;
+        bool progressBarEnabled = false;
+        COLOR progressBarColor;       // Lit portion color (progress)
         COLOR progressBarBackground;  // Unlit portion color (default black)
 
         // LED test mode
