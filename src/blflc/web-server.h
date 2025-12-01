@@ -26,8 +26,12 @@ void handlePrinterConfigJson(AsyncWebServerRequest *request);
 void handleStyleCss(AsyncWebServerRequest *request);
 void handleSubmitConfig(AsyncWebServerRequest *request);
 void handleLedTest(AsyncWebServerRequest *request);
+#ifdef USE_ETHERNET
+void handlePrinterSetupPage(AsyncWebServerRequest *request);
+#else
 void handleWiFiScan(AsyncWebServerRequest *request);
 void handleWiFiSetupPage(AsyncWebServerRequest *request);
+#endif
 void handleSubmitWiFi(AsyncWebServerRequest *request);
 void handleConfigPage(AsyncWebServerRequest *request);
 void handleDownloadConfigFile(AsyncWebServerRequest *request);

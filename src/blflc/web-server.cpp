@@ -10,6 +10,10 @@
 #include "logserial.h"
 #include "bblprinterdiscovery.h"
 
+#ifdef USE_ETHERNET
+#include "eth-manager.h"
+#endif
+
 AsyncWebServer webServer(80);
 AsyncWebSocket ws("/ws");
 
@@ -96,11 +100,17 @@ void handleGetConfig(AsyncWebServerRequest *request)
     JsonDocument doc;
 
     doc["firmwareversion"] = globalVariables.FWVersion.c_str();
+#ifdef USE_ETHERNET
+    doc["networkType"] = "ethernet";
+    doc["linkSpeed"] = ETH.linkSpeed();
+#else
+    doc["networkType"] = "wifi";
     doc["wifiStrength"] = WiFi.RSSI();
+    doc["apMAC"] = printerConfig.BSSID;
+#endif
     doc["ip"] = printerConfig.printerIP;
     doc["code"] = printerConfig.accessCode;
     doc["id"] = printerConfig.serialNumber;
-    doc["apMAC"] = printerConfig.BSSID;
     doc["brightness"] = printerConfig.brightness;
 
     // LED Hardware Configuration
@@ -192,14 +202,22 @@ void handlePrinterConfigJson(AsyncWebServerRequest *request)
         return request->requestAuthentication();
     }
     JsonDocument doc;
-    doc["ssid"] = globalVariables.SSID;
-    doc["pass"] = globalVariables.APPW;
     doc["printerIP"] = printerConfig.printerIP;
     doc["printerSerial"] = printerConfig.serialNumber;
     doc["accessCode"] = printerConfig.accessCode;
     doc["webUser"] = securityVariables.HTTPUser;
     doc["webPass"] = securityVariables.HTTPPass;
+#ifdef USE_ETHERNET
+    doc["networkType"] = "ethernet";
+    doc["deviceIP"] = ETH.localIP().toString();
+    doc["linkSpeed"] = ETH.linkSpeed();
+    doc["isAPMode"] = false;
+#else
+    doc["networkType"] = "wifi";
+    doc["ssid"] = globalVariables.SSID;
+    doc["pass"] = globalVariables.APPW;
     doc["isAPMode"] = (WiFi.getMode() & WIFI_AP);
+#endif
 
     String json;
     serializeJson(doc, json);
@@ -241,7 +259,9 @@ void handleSubmitConfig(AsyncWebServerRequest *request)
     uint8_t oldColorOrder = printerConfig.ledConfig.colorOrder;
 
     printerConfig.brightness = getSafeParamInt(request, "brightnessslider");
+#ifndef USE_ETHERNET
     printerConfig.rescanWiFiNetwork = request->hasParam("rescanWiFiNetwork", true);
+#endif
     printerConfig.maintMode = request->hasParam("maintMode", true);
     printerConfig.discoMode = request->hasParam("discoMode", true);
     printerConfig.replicatestate = request->hasParam("replicateLedState", true);
@@ -373,6 +393,14 @@ void sendJsonToAll(JsonDocument &doc)
     ws.textAll(jsonString);
 }
 
+#ifdef USE_ETHERNET
+void handlePrinterSetupPage(AsyncWebServerRequest *request)
+{
+    AsyncWebServerResponse *response = request->beginResponse(200, printerSetup_html_gz_mime, printerSetup_html_gz, printerSetup_html_gz_len);
+    response->addHeader("Content-Encoding", "gzip");
+    request->send(response);
+}
+#else
 void handleWiFiScan(AsyncWebServerRequest *request)
 {
     JsonDocument doc;
@@ -398,6 +426,7 @@ void handleWiFiSetupPage(AsyncWebServerRequest *request)
     response->addHeader("Content-Encoding", "gzip");
     request->send(response);
 }
+#endif
 
 void handleSubmitWiFi(AsyncWebServerRequest *request)
 {
@@ -474,8 +503,15 @@ void websocketLoop()
         lastWsPush = millis();
 
         JsonDocument doc;
+#ifdef USE_ETHERNET
+        doc["network_type"] = "ethernet";
+        doc["link_speed"] = ETH.linkSpeed();
+        doc["ip"] = ETH.localIP().toString();
+#else
+        doc["network_type"] = "wifi";
         doc["wifi_rssi"] = WiFi.RSSI();
         doc["ip"] = WiFi.localIP().toString();
+#endif
         doc["uptime"] = millis() / 1000;
         doc["doorOpen"] = printerVariables.doorOpen;
         doc["printerConnection"] = printerVariables.online;
@@ -645,6 +681,12 @@ void setupWebserver()
 
     LogSerial.println(F("Setting up webserver"));
 
+#ifdef USE_ETHERNET
+    // Ethernet mode - no captive portal, go straight to setup
+    webServer.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
+                 { handleSetup(request); });
+#else
+    // WiFi mode - captive portal redirect in AP mode
     webServer.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
                  {
     if (WiFi.getMode() == WIFI_AP) {
@@ -653,6 +695,7 @@ void setupWebserver()
     } else {
         handleSetup(request);
     } });
+#endif
     webServer.on("/fwupdate", HTTP_GET, handleUpdatePage);
     webServer.on("/getConfig", HTTP_GET, handleGetConfig);
     webServer.on("/submitConfig", HTTP_POST, handleSubmitConfig);
@@ -660,8 +703,15 @@ void setupWebserver()
     webServer.on("/favicon.ico", HTTP_GET, handleGetfavicon);
     webServer.on("/particleCanvas.js", HTTP_GET, handleGetPCC);
     webServer.on("/config.json", HTTP_GET, handlePrinterConfigJson);
+#ifdef USE_ETHERNET
+    // Ethernet mode - printer setup only (no WiFi configuration)
+    webServer.on("/wifi", HTTP_GET, handlePrinterSetupPage);
+    webServer.on("/printer", HTTP_GET, handlePrinterSetupPage);
+#else
+    // WiFi-specific routes
     webServer.on("/wifi", HTTP_GET, handleWiFiSetupPage);
     webServer.on("/wifiScan", HTTP_GET, handleWiFiScan);
+#endif
     webServer.on("/submitWiFi", HTTP_POST, handleSubmitWiFi);
     webServer.on("/style.css", HTTP_GET, handleStyleCss);
     webServer.on("/backuprestore", HTTP_GET, handleConfigPage);
