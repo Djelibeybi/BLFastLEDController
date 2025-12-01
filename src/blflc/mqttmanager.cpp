@@ -3,6 +3,15 @@
 #include "leds.h"
 #include "logserial.h"
 
+#ifdef USE_ETHERNET
+#include "eth-manager.h"
+// For ethernet, check if we have an IP address
+#define NETWORK_CONNECTED() isEthernetConnected()
+#else
+// For WiFi, check station mode and connected status
+#define NETWORK_CONNECTED() (WiFi.status() == WL_CONNECTED && WiFi.getMode() == WIFI_MODE_STA)
+#endif
+
 WiFiClientSecure wifiSecureClient;
 PubSubClient mqttClient(wifiSecureClient);
 
@@ -44,7 +53,7 @@ void connectMqtt()
 
     mqttConnectInProgress = true;
 
-    if (WiFi.status() != WL_CONNECTED || WiFi.getMode() != WIFI_MODE_STA)
+    if (!NETWORK_CONNECTED())
     {
         mqttConnectInProgress = false;
         return;
@@ -98,7 +107,7 @@ void mqttTask(void *parameter)
 
     while (true)
     {
-        if (WiFi.status() != WL_CONNECTED || WiFi.getMode() != WIFI_MODE_STA)
+        if (!NETWORK_CONNECTED())
         {
             printerVariables.online = false;
             vTaskDelay(pdMS_TO_TICKS(2000));
@@ -754,9 +763,9 @@ void setupMqtt()
 
 void mqttloop()
 {
-    if (WiFi.status() != WL_CONNECTED || WiFi.getMode() != WIFI_MODE_STA)
+    if (!NETWORK_CONNECTED())
     {
-        // Abort MQTT connection attempt when no Wifi
+        // Abort MQTT connection attempt when no network
         return;
     }
     if (!mqttClient.connected())

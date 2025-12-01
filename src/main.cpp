@@ -8,11 +8,15 @@ unsigned long restartRequestTime = 0;
 #include "./blflc/bblprinterdiscovery.h"
 #include "./blflc/web-server.h"
 #include "./blflc/mqttmanager.h"
-#include "./blflc/wifi-manager.h"
 #include "./blflc/ssdp.h"
-#include "./blflc/improv-serial.h"
 
+#ifdef USE_ETHERNET
+#include "./blflc/eth-manager.h"
+#else
+#include "./blflc/wifi-manager.h"
+#include "./blflc/improv-serial.h"
 int wifi_reconnect_count = 0;
+#endif
 
 void defaultcolors()
 {
@@ -69,6 +73,27 @@ void setup()
 
     setLedColor(colorToCRGB(printerConfig.wifiRGB)); // Customisable - Default is ORANGE
 
+#ifdef USE_ETHERNET
+    // Ethernet mode - no WiFi configuration needed
+    Serial.println(F("[Ethernet] Starting ethernet connection..."));
+    setupEthernet();
+
+    if (!isEthernetConnected())
+    {
+        Serial.println(F("[Ethernet] No connection - check cable"));
+        setLedColor(CRGB(255, 0, 0)); // RED - error
+        // Still start webserver for diagnostics if we have link but no IP
+        setupWebserver();
+        return;
+    }
+    else
+    {
+        Serial.println(F("[Ethernet] Connected. Starting webUI."));
+        setLedColor(CRGB(0, 0, 255)); // BLUE
+        setupWebserver();
+    }
+#else
+    // WiFi mode
     if (strlen(globalVariables.SSID) == 0 || strlen(globalVariables.APPW) == 0)
     {
         Serial.println(F("SSID or password is missing. Starting Improv Serial for WiFi provisioning."));
@@ -96,6 +121,7 @@ void setup()
         setLedColor(CRGB(0, 0, 255)); // BLUE
         setupWebserver();
     }
+#endif
 
     start_ssdp();
 
@@ -116,14 +142,29 @@ void setup()
 
 void loop()
 {
-    // Process Improv Serial for WiFi provisioning
+#ifndef USE_ETHERNET
+    // Process Improv Serial for WiFi provisioning (WiFi mode only)
     loopImprovSerial();
+#endif
 
     if (globalVariables.started)
     {
         websocketLoop();
         ledsloop();
 
+#ifdef USE_ETHERNET
+        // Ethernet mode - check connection status
+        if (!isEthernetConnected())
+        {
+            // Ethernet disconnected - LED feedback handled by event handler
+            // Connection will auto-restore when cable reconnected
+        }
+        else
+        {
+            bblSearchPrinters();
+        }
+#else
+        // WiFi mode - handle reconnection
         if (WiFi.status() != WL_CONNECTED)
         {
             LogSerial.print(F("Wifi connection dropped.  "));
@@ -154,7 +195,10 @@ void loop()
         {
             bblSearchPrinters();
         }
+#endif
     }
+
+#ifndef USE_ETHERNET
     if (printerConfig.rescanWiFiNetwork)
     {
         LogSerial.println(F("Web submitted refresh of Wifi Scan (assigning Strongest AP)"));
@@ -163,9 +207,11 @@ void loop()
         printerConfig.rescanWiFiNetwork = false;
         updateleds();
     }
+#endif
+
     if (shouldRestart && millis() - restartRequestTime > 1500)
     {
-        LogSerial.println(F("[WiFiSetup] Restarting now..."));
+        LogSerial.println(F("[Setup] Restarting now..."));
         ESP.restart();
     }
 }
