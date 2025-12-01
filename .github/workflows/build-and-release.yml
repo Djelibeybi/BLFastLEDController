@@ -2,17 +2,28 @@ name: Build and Release
 
 on:
   push:
-    branches:
-      - main
     tags:
       - 'v*.*.*'
   pull_request:
     branches:
       - main
+    paths:
+      - 'src/**'
+      - 'lib/**'
+      - 'include/**'
+      - 'platformio.ini'
+  workflow_dispatch:
+    inputs:
+      deploy_pages_only:
+        description: 'Deploy GitHub Pages only (skip build/release)'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    if: ${{ !inputs.deploy_pages_only }}
 
     steps:
       - name: Checkout repository
@@ -123,7 +134,7 @@ jobs:
   deploy-pages:
     needs: release
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: ${{ startsWith(github.ref, 'refs/tags/v') && !inputs.deploy_pages_only }}
 
     permissions:
       contents: read
@@ -158,6 +169,92 @@ jobs:
       - name: Generate manifest.json
         run: |
           VERSION="${{ steps.version.outputs.version }}"
+          cat > docs/manifest.json << EOF
+          {
+            "name": "BL FastLED Controller",
+            "version": "${VERSION}",
+            "new_install_prompt_erase": true,
+            "new_install_improv_wait_time": 15,
+            "builds": [
+              {
+                "chipFamily": "ESP32",
+                "parts": [
+                  {
+                    "path": "firmware/BLFLC_V${VERSION}.bin",
+                    "offset": 0
+                  }
+                ]
+              }
+            ]
+          }
+          EOF
+          echo "Generated manifest.json:"
+          cat docs/manifest.json
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: docs
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  # Manual deployment of GitHub Pages (uses latest release firmware)
+  deploy-pages-manual:
+    runs-on: ubuntu-latest
+    if: ${{ inputs.deploy_pages_only }}
+
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+    concurrency:
+      group: "pages"
+      cancel-in-progress: false
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Get latest release
+        id: latest_release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LATEST_TAG=$(gh release view --json tagName -q '.tagName' 2>/dev/null || echo "")
+          if [ -z "$LATEST_TAG" ]; then
+            echo "No releases found"
+            exit 1
+          fi
+          VERSION=${LATEST_TAG#v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+          echo "Latest release: $LATEST_TAG (version: $VERSION)"
+
+      - name: Download firmware from latest release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p docs/firmware
+          VERSION="${{ steps.latest_release.outputs.version }}"
+          gh release download "${{ steps.latest_release.outputs.tag }}" \
+            --pattern "BLFLC_V${VERSION}.bin" \
+            --dir docs/firmware
+          echo "Downloaded firmware files:"
+          ls -la docs/firmware/
+
+      - name: Generate manifest.json
+        run: |
+          VERSION="${{ steps.latest_release.outputs.version }}"
           cat > docs/manifest.json << EOF
           {
             "name": "BL FastLED Controller",
