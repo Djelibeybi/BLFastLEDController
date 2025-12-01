@@ -97,28 +97,53 @@ void setupLeds()
     FastLED.clear();
 
     // Select pin based on configuration (compile-time templates for each supported pin)
+    uint8_t colorOrder = printerConfig.ledConfig.colorOrder;
+    uint8_t wPlacement = printerConfig.ledConfig.wPlacement;
+
     if (chipType == CHIP_APA102) {
-        // APA102 requires clock pin - use fixed pins for now
-        // Data on configured pin, clock on next pin
+        // APA102 requires both data and clock pins
+        uint8_t clockPin = printerConfig.ledConfig.clockPin;
+
+        // Macro to reduce code duplication for data/clock pin combinations
+        #define APA102_CLOCK_CASES(DATA) \
+            case DATA: \
+                switch (clockPin) { \
+                    case 2:  addLedsAPA102<DATA, 2>(count, colorOrder); break; \
+                    case 4:  addLedsAPA102<DATA, 4>(count, colorOrder); break; \
+                    case 5:  addLedsAPA102<DATA, 5>(count, colorOrder); break; \
+                    case 12: addLedsAPA102<DATA, 12>(count, colorOrder); break; \
+                    case 13: addLedsAPA102<DATA, 13>(count, colorOrder); break; \
+                    case 16: addLedsAPA102<DATA, 16>(count, colorOrder); break; \
+                    case 17: addLedsAPA102<DATA, 17>(count, colorOrder); break; \
+                    case 18: addLedsAPA102<DATA, 18>(count, colorOrder); break; \
+                    default: addLedsAPA102<DATA, 17>(count, colorOrder); break; \
+                } \
+                break;
+
         switch (dataPin) {
-            case 2:  addLedsAPA102<2, 4>(count); break;
-            case 12: addLedsAPA102<12, 14>(count); break;
-            case 16: addLedsAPA102<16, 17>(count); break;
-            default: addLedsAPA102<16, 17>(count); break;
+            APA102_CLOCK_CASES(2)
+            APA102_CLOCK_CASES(4)
+            APA102_CLOCK_CASES(5)
+            APA102_CLOCK_CASES(12)
+            APA102_CLOCK_CASES(13)
+            APA102_CLOCK_CASES(16)
+            APA102_CLOCK_CASES(17)
+            APA102_CLOCK_CASES(18)
+            default: addLedsAPA102<16, 17>(count, colorOrder); break;
         }
+        #undef APA102_CLOCK_CASES
     } else {
         // Single-wire protocols
-        uint8_t colorOrder = printerConfig.ledConfig.colorOrder;
         switch (dataPin) {
-            case 2:  addLedsForChipType<2>(chipType, count, colorOrder); break;
-            case 4:  addLedsForChipType<4>(chipType, count, colorOrder); break;
-            case 5:  addLedsForChipType<5>(chipType, count, colorOrder); break;
-            case 12: addLedsForChipType<12>(chipType, count, colorOrder); break;
-            case 13: addLedsForChipType<13>(chipType, count, colorOrder); break;
-            case 16: addLedsForChipType<16>(chipType, count, colorOrder); break;
-            case 17: addLedsForChipType<17>(chipType, count, colorOrder); break;
-            case 18: addLedsForChipType<18>(chipType, count, colorOrder); break;
-            default: addLedsForChipType<16>(chipType, count, colorOrder); break;
+            case 2:  addLedsForChipType<2>(chipType, count, colorOrder, wPlacement); break;
+            case 4:  addLedsForChipType<4>(chipType, count, colorOrder, wPlacement); break;
+            case 5:  addLedsForChipType<5>(chipType, count, colorOrder, wPlacement); break;
+            case 12: addLedsForChipType<12>(chipType, count, colorOrder, wPlacement); break;
+            case 13: addLedsForChipType<13>(chipType, count, colorOrder, wPlacement); break;
+            case 16: addLedsForChipType<16>(chipType, count, colorOrder, wPlacement); break;
+            case 17: addLedsForChipType<17>(chipType, count, colorOrder, wPlacement); break;
+            case 18: addLedsForChipType<18>(chipType, count, colorOrder, wPlacement); break;
+            default: addLedsForChipType<16>(chipType, count, colorOrder, wPlacement); break;
         }
     }
 
@@ -126,10 +151,13 @@ void setupLeds()
     FastLED.clear();
     FastLED.show();
 
-    LogSerial.printf("[LED] Configured %d LEDs on GPIO %d, chip type %d\n",
-                     count, dataPin, chipType);
-
-
+    if (chipType == CHIP_APA102) {
+        LogSerial.printf("[LED] Configured %d LEDs on data GPIO %d, clock GPIO %d, chip type %d\n",
+                         count, dataPin, printerConfig.ledConfig.clockPin, chipType);
+    } else {
+        LogSerial.printf("[LED] Configured %d LEDs on GPIO %d, chip type %d\n",
+                         count, dataPin, chipType);
+    }
 }
 
 // Set current color and pattern (replaces tweenToColor)
