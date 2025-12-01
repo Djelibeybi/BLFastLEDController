@@ -48,8 +48,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install platformio
 
-      - name: Build firmware
-        run: pio run -e esp32dev
+      - name: Build firmware (all environments)
+        run: pio run -e esp32dev -e esp32_eth_gledopto -e esp32_eth_iotorero
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v5
@@ -169,7 +169,7 @@ jobs:
       - name: Generate manifest.json
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          cat > docs/manifest.json << EOF
+          cat > docs/manifest.json << 'EOF'
           {
             "name": "BL FastLED Controller",
             "version": "${VERSION}",
@@ -178,9 +178,30 @@ jobs:
             "builds": [
               {
                 "chipFamily": "ESP32",
+                "name": "WiFi",
                 "parts": [
                   {
                     "path": "firmware/BLFLC_V${VERSION}.bin",
+                    "offset": 0
+                  }
+                ]
+              },
+              {
+                "chipFamily": "ESP32",
+                "name": "Ethernet (Gledopto)",
+                "parts": [
+                  {
+                    "path": "firmware/BLFLC-ETH-Gledopto_V${VERSION}.bin",
+                    "offset": 0
+                  }
+                ]
+              },
+              {
+                "chipFamily": "ESP32",
+                "name": "Ethernet (IoTorero)",
+                "parts": [
+                  {
+                    "path": "firmware/BLFLC-ETH-IoTorero_V${VERSION}.bin",
                     "offset": 0
                   }
                 ]
@@ -188,6 +209,8 @@ jobs:
             ]
           }
           EOF
+          # Replace ${VERSION} placeholder with actual version
+          sed -i "s/\${VERSION}/${VERSION}/g" docs/manifest.json
           echo "Generated manifest.json:"
           cat docs/manifest.json
 
@@ -248,6 +271,8 @@ jobs:
           VERSION="${{ steps.latest_release.outputs.version }}"
           gh release download "${{ steps.latest_release.outputs.tag }}" \
             --pattern "BLFLC_V${VERSION}.bin" \
+            --pattern "BLFLC-ETH-Gledopto_V${VERSION}.bin" \
+            --pattern "BLFLC-ETH-IoTorero_V${VERSION}.bin" \
             --dir docs/firmware
           echo "Downloaded firmware files:"
           ls -la docs/firmware/
@@ -255,7 +280,7 @@ jobs:
       - name: Generate manifest.json
         run: |
           VERSION="${{ steps.latest_release.outputs.version }}"
-          cat > docs/manifest.json << EOF
+          cat > docs/manifest.json << 'EOF'
           {
             "name": "BL FastLED Controller",
             "version": "${VERSION}",
@@ -264,9 +289,30 @@ jobs:
             "builds": [
               {
                 "chipFamily": "ESP32",
+                "name": "WiFi",
                 "parts": [
                   {
                     "path": "firmware/BLFLC_V${VERSION}.bin",
+                    "offset": 0
+                  }
+                ]
+              },
+              {
+                "chipFamily": "ESP32",
+                "name": "Ethernet (Gledopto)",
+                "parts": [
+                  {
+                    "path": "firmware/BLFLC-ETH-Gledopto_V${VERSION}.bin",
+                    "offset": 0
+                  }
+                ]
+              },
+              {
+                "chipFamily": "ESP32",
+                "name": "Ethernet (IoTorero)",
+                "parts": [
+                  {
+                    "path": "firmware/BLFLC-ETH-IoTorero_V${VERSION}.bin",
                     "offset": 0
                   }
                 ]
@@ -274,6 +320,8 @@ jobs:
             ]
           }
           EOF
+          # Replace ${VERSION} placeholder with actual version
+          sed -i "s/\${VERSION}/${VERSION}/g" docs/manifest.json
           echo "Generated manifest.json:"
           cat docs/manifest.json
 
