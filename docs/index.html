@@ -78,7 +78,7 @@
             display: inline-block;
         }
 
-        esp-web-install-button::part(button) {
+        esp-web-install-button button[slot="activate"] {
             background: var(--primary-color);
             color: white;
             font-size: 1.2rem;
@@ -90,7 +90,7 @@
             transition: background 0.2s;
         }
 
-        esp-web-install-button::part(button):hover {
+        esp-web-install-button button[slot="activate"]:hover {
             background: var(--primary-hover);
         }
 
@@ -213,7 +213,7 @@
                 padding: 1.5rem;
             }
 
-            esp-web-install-button::part(button) {
+            esp-web-install-button button[slot="activate"] {
                 padding: 0.8rem 1.5rem;
                 font-size: 1rem;
             }
