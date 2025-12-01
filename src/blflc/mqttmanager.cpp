@@ -537,8 +537,15 @@ bool parseHMS(JsonDocument& msg, bool& changed)
     if (oldHMSlevel == printerVariables.parsedHMSlevel)
         return false;
 
-    // Apply stage override based on HMS code
-    applyHMSOverride(printerVariables.parsedHMScode);
+    // Apply stage override based on HMS code, or reset if no HMS error
+    if (printerVariables.parsedHMSlevel.length() > 0)
+    {
+        applyHMSOverride(printerVariables.parsedHMScode);
+    }
+    else
+    {
+        printerVariables.overridestage = 999;
+    }
 
     // Debug logging
     if (printerConfig.debugging || printerConfig.debugOnChange)
@@ -563,7 +570,6 @@ bool parseHMS(JsonDocument& msg, bool& changed)
         else
         {
             LogSerial.println(F("NULL"));
-            printerVariables.overridestage = 999;
         }
     }
 
