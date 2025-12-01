@@ -194,18 +194,6 @@
                             </label>
                             <span>Inverted (active HIGH instead of active LOW)</span>
                         </div>
-                        <div class="detailSplitter">Print Progress Bar</div>
-                        <div class="toggle-switch">
-                            <label class="switch">
-                                <input type="checkbox" id="progressBarEnabled" name="progressBarEnabled" checked>
-                                <span class="slider"></span>
-                            </label>
-                            <span>Show progress bar during printing</span>
-                        </div>
-                        <div class="input-group">
-                            <label for="progressBgRGB">Background Color (unlit LEDs)</label>
-                            <input type="color" id="progressBgRGB" name="progressBgRGB" value="#000000">
-                        </div>
                         <div class="detailSplitter">Test LEDs</div>
                         <button type="button" onclick="testLeds()" class="btn-secondary">Test LED Strip</button>
                     </div>
@@ -272,6 +260,19 @@
                                 <span class="slider"></span>
                             </label>
                             <span>Show Wifi Strength via LEDs</span>
+                        </div>
+                        <!-- Progress Bar -->
+                        <div class="toggle-switch">
+                            <label class="switch">
+                                <input type="checkbox" id="progressBarEnabled" name="progressBarEnabled" class="LEDBehavior"
+                                    onchange='selectOnlyOne(this);showhideOptions();'>
+                                <span class="slider"></span>
+                            </label>
+                            <span>Print Progress Bar</span>
+                            <div id="progressBarOptions" class="input-inline-group" style="margin-left: auto;">
+                                <input type="color" id="progressRGB" name="progressRGB" value="#FFFFFF" title="Progress color">
+                                <input type="color" id="progressBgRGB" name="progressBgRGB" value="#000000" title="Background color">
+                            </div>
                         </div>
                         <!-- splitt line -->
                         <div class="detailSplitter">LED Actions</div>
@@ -812,6 +813,11 @@
             } else {
                 document.getElementById("runningcolorchoice").style.display = 'none';
             }
+            if (document.getElementById('progressBarEnabled').checked) {
+                document.getElementById("progressBarOptions").style.display = '';
+            } else {
+                document.getElementById("progressBarOptions").style.display = 'none';
+            }
 
         }
         //Error colors
@@ -980,8 +986,6 @@ function updateConfig() {
                     document.getElementById('ledClockPin').value = getSafeNumber(configData.ledClockPin, 17);
                     // Update chip-type-specific option visibility
                     updateChipTypeOptions();
-                    document.getElementById('progressBarEnabled').checked = configData.progressBarEnabled !== false;
-                    document.getElementById('progressBgRGB').value = configData.progressBgRGB || '#000000';
 
                     // Relay Configuration
                     document.getElementById('relayPin').value = getSafeNumber(configData.relayPin, -1);
@@ -998,6 +1002,9 @@ function updateConfig() {
                     document.getElementById('testRGB').value = configData.testRGB || '#FFFFFF';
 
                     document.getElementById('debugwifi').checked = configData.debugwifi || false;
+                    document.getElementById('progressBarEnabled').checked = configData.progressBarEnabled || false;
+                    document.getElementById('progressRGB').value = configData.progressRGB || '#FFFFFF';
+                    document.getElementById('progressBgRGB').value = configData.progressBgRGB || '#000000';
                     document.getElementById('finishIndication').checked = configData.finishindication || false;
                     document.getElementById('finishColor').value = configData.finishColor || '#00FF00';
                     document.getElementById('finishPattern').value = getSafeNumber(configData.finishPattern, 1);

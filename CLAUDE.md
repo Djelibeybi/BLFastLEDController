@@ -104,3 +104,5 @@ Device stores config in LittleFS at `/blledconfig.json`. Key settings include:
 - `/backuprestore` - Config backup/restore
 - `/webserial` - Live debug log viewer
 - `/factoryreset` - Wipe all settings
+- Always use "uv run pio ..." when you want to run the PlatformIO CLI
+- Always add --no-gpg-sign when committing changes to git.

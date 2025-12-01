@@ -311,6 +311,38 @@ bool handleTestColorMode()
     return true;
 }
 
+// Handle Progress Bar Mode - Shows print progress as a visual bar
+bool handleProgressBarMode()
+{
+    if (!printerConfig.progressBarEnabled)
+        return false;
+
+    // Only show progress bar when printing
+    if (printerVariables.gcodeState == "RUNNING" && printerVariables.stage == 0)
+    {
+        CRGB progressColor = colorToCRGB(printerConfig.progressBarColor);
+        CRGB bgColor = colorToCRGB(printerConfig.progressBarBackground);
+        setRelayState(true);
+        setLedState(progressColor, PATTERN_PROGRESS, bgColor);
+        return true;
+    }
+
+    // When not printing, show background color (or off if black)
+    if (printerConfig.progressBarBackground.r == 0 &&
+        printerConfig.progressBarBackground.g == 0 &&
+        printerConfig.progressBarBackground.b == 0)
+    {
+        setLedsOff();
+        setRelayState(false);
+    }
+    else
+    {
+        setRelayState(true);
+        setLedColor(printerConfig.progressBarBackground);
+    }
+    return true;
+}
+
 // Handle Disco Mode - Rainbow pattern
 bool handleDiscoMode()
 {
@@ -616,19 +648,8 @@ bool handleRunningStates(bool inFinishWindow)
     // Printing (Stage 0, RUNNING)
     if (printerVariables.stage == 0 && printerVariables.gcodeState == "RUNNING")
     {
-        if (printerConfig.progressBarEnabled)
-        {
-            CRGB bgColor = CRGB(printerConfig.progressBarBackground.r,
-                                printerConfig.progressBarBackground.g,
-                                printerConfig.progressBarBackground.b);
-            setRelayState(true);
-            setLedState(colorToCRGB(printerConfig.runningColor), PATTERN_PROGRESS, bgColor);
-        }
-        else
-        {
-            setRelayState(true);
-            setLedState(printerConfig.runningColor, printerConfig.runningPattern);
-        }
+        setRelayState(true);
+        setLedState(printerConfig.runningColor, printerConfig.runningPattern);
         printLogs("PRINTING", printerConfig.runningColor);
         return true;
     }
@@ -727,6 +748,7 @@ void updateleds()
     if (handleWifiDebugMode()) return;
     if (handleTestColorMode()) return;
     if (handleDiscoMode()) return;
+    if (handleProgressBarMode()) return;
 
     // Debug output
     if (printerConfig.debugging)
@@ -744,7 +766,8 @@ void updateleds()
 
     // Skip remaining handlers if in special mode
     if (printerConfig.testcolorEnabled || printerConfig.maintMode ||
-        printerConfig.debugwifi || printerConfig.discoMode)
+        printerConfig.debugwifi || printerConfig.discoMode ||
+        printerConfig.progressBarEnabled)
     {
         return;
     }
