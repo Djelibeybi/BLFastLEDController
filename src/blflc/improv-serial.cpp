@@ -91,7 +91,7 @@ static bool improv_on_command_callback(improv::ImprovCommand cmd) {
             "BLFLC",
             std::string(globalVariables.FWVersion.c_str()),
             "ESP32",
-            std::string(globalVariables.Host.c_str())
+            std::string(globalVariables.hostname)
         };
         std::vector<uint8_t> data = improv::build_rpc_response(
             improv::GET_DEVICE_INFO, infos, false);

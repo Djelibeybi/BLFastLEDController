@@ -13,8 +13,10 @@
     <div id="container">
         <div id="header">
             <img id="logo" src="/blflc.svg" alt="BLFLC Logo">
-            <h1>BLFLC Printer Setup</h1>
+            <h1>Printer Setup</h1>
         </div>
+
+        <nav class="nav-menu" id="navMenu"></nav>
 
         <div id="networkStatus" class="network" style="padding: 10px; margin-bottom: 15px; background: #f5f5f5; border-radius: 4px;">
             Loading network status...
@@ -25,28 +27,24 @@
             <div style="display: flex; gap: 6px; align-items: center;">
                 <input type="text" id="printerIP" placeholder="e.g. 192.168.1.100" style="flex: 2;">
                 <button type="button" id="openPrinterList" title="Search printer"
-                    style="flex: 1; margin-bottom: 8px; background-color: #28a745; cursor: pointer; width: 29px; height: 29px; padding: 0;">
-                    Printer Discovery
+                    style="flex: 1; margin-bottom: 8px; background-color: #28a745; cursor: pointer; padding: 8px 12px;">
+                    Discover
                 </button>
             </div>
 
             <label for="printerSerial">Printer Serial Number</label>
-            <input type="text" id="printerSerial" placeholder="e.g. BL123456789">
+            <input type="text" id="printerSerial" placeholder="e.g. 00M00A000000000">
 
             <label for="accessCode">Printer Access Code</label>
-            <input type="text" id="accessCode" placeholder="e.g. Access123">
+            <input type="text" id="accessCode" placeholder="8-digit code from printer">
 
-            <label for="webUser">WebUI Security Username</label>
-            <input type="text" id="webUser" placeholder="e.g. admin" autocomplete="new-username">
-
-            <label for="webPass">WebUI Security Password</label>
-            <input type="password" id="webPass" placeholder="e.g. password" autocomplete="new-password">
-
-            <div style="display: flex; gap: 10px; justify-content: space-between;">
-                <button type="submit">Save</button>
-                <button type="button" style="background-color: #6c757d;" onclick="location.href='/'">Back</button>
-            </div>
+            <button type="submit">Save</button>
         </form>
+
+        <div id="status-bar">
+            <span id="status-led">LED: <span id="ledReason">--</span></span>
+            <span id="status-printer">Printer: <span id="printerState">--</span></span>
+        </div>
     </div>
 
     <script src="particleCanvas.js"></script>
@@ -76,6 +74,8 @@
         </div>
     </div>
     <script>
+        let isEthernet = false;
+
         function alertToast(type, message) {
             const toast = document.getElementById("toast");
             const icon = document.getElementById("toast-icon");
@@ -85,30 +85,39 @@
             let color = "#333";
 
             switch (type.toLowerCase()) {
-                case "success":
-                    iconChar = "OK";
-                    color = "#28a745";
-                    break;
-                case "error":
-                    iconChar = "X";
-                    color = "#dc3545";
-                    break;
-                case "warning":
-                    iconChar = "!";
-                    color = "#ffc107";
-                    break;
-                case "info":
-                default:
-                    iconChar = "i";
-                    color = "#17a2b8";
+                case "success": iconChar = "OK"; color = "#28a745"; break;
+                case "error": iconChar = "X"; color = "#dc3545"; break;
+                case "warning": iconChar = "!"; color = "#ffc107"; break;
+                case "info": default: iconChar = "i"; color = "#17a2b8";
             }
 
             toast.style.backgroundColor = color;
             icon.textContent = iconChar;
             msg.textContent = message;
-
             toast.classList.add("show");
             setTimeout(() => toast.classList.remove("show"), 3000);
+        }
+
+        function buildNavMenu() {
+            const nav = document.getElementById("navMenu");
+            const currentPage = window.location.pathname;
+
+            let links = [
+                { href: "/", label: "LEDs" },
+                { href: "/printer", label: "Printer" },
+                { href: "/auth", label: "Auth" },
+                { href: "/debug", label: "Debug" },
+                { href: "/advanced", label: "Advanced" }
+            ];
+
+            // WiFi link only shown if networkType is wifi
+            if (!isEthernet) {
+                links.splice(1, 0, { href: "/wifi", label: "WiFi" });
+            }
+
+            nav.innerHTML = links.map(link =>
+                `<a href="${link.href}" class="${currentPage === link.href ? 'active' : ''}">${link.label}</a>`
+            ).join("");
         }
 
         async function loadNetworkStatus() {
@@ -117,13 +126,19 @@
                 const config = await res.json();
                 const statusDiv = document.getElementById("networkStatus");
 
-                if (config.networkType === "ethernet") {
+                isEthernet = config.networkType === "ethernet";
+
+                if (isEthernet) {
                     statusDiv.innerHTML = `<strong>Ethernet Connected</strong> (${config.linkSpeed || '?'} Mbps)<br>Device IP: ${config.deviceIP || 'Awaiting DHCP...'}`;
                 } else {
-                    statusDiv.innerHTML = `<strong>Network:</strong> ${config.ssid || 'Not configured'}`;
+                    statusDiv.innerHTML = `<strong>WiFi:</strong> ${config.ssid || 'Not configured'}`;
                 }
+
+                // Build nav after we know the network type
+                buildNavMenu();
             } catch (err) {
                 document.getElementById("networkStatus").innerHTML = "Network status unavailable";
+                buildNavMenu();
             }
         }
 
@@ -132,18 +147,16 @@
             const printerIP = document.getElementById("printerIP").value;
             const printerSerial = document.getElementById("printerSerial").value.trim().toUpperCase();
             const accessCode = document.getElementById("accessCode").value;
-            const webUser = document.getElementById("webUser").value;
-            const webPass = document.getElementById("webPass").value;
 
             try {
-                const res = await fetch("/submitWiFi", {
+                const res = await fetch("/submitPrinter", {
                     method: "POST",
                     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                    body: `printerIP=${encodeURIComponent(printerIP)}&printerSerial=${encodeURIComponent(printerSerial)}&accessCode=${encodeURIComponent(accessCode)}&webUser=${encodeURIComponent(webUser)}&webPass=${encodeURIComponent(webPass)}`
+                    body: `printerIP=${encodeURIComponent(printerIP)}&printerSerial=${encodeURIComponent(printerSerial)}&accessCode=${encodeURIComponent(accessCode)}`
                 });
 
                 if (res.ok) {
-                    alertToast("success", "Settings saved. Restarting...");
+                    alertToast("success", "Printer settings saved. Restarting...");
                 } else {
                     alertToast("error", "Save failed: " + res.status);
                 }
@@ -159,26 +172,21 @@
                 document.getElementById("printerIP").value = config.printerIP || "";
                 document.getElementById("printerSerial").value = config.printerSerial || "";
                 document.getElementById("accessCode").value = config.accessCode || "";
-                document.getElementById("webUser").value = config.webUser || "";
-                document.getElementById("webPass").value = config.webPass || "";
             } catch (err) {
                 console.warn("No existing config found or failed to load.");
             }
         }
 
-        loadPrinterConfig();
-        loadNetworkStatus();
-
         async function loadPrinters() {
             const list = document.getElementById("printerList");
-            list.innerHTML = "Loading...";
+            list.innerHTML = "Searching...";
 
             try {
                 const res = await fetch("/printerList");
                 const printers = await res.json();
 
                 if (printers.length === 0) {
-                    list.innerHTML = "<p>No printers found.</p>";
+                    list.innerHTML = "<p>No printers found on the network.</p>";
                     return;
                 }
 
@@ -186,7 +194,7 @@
                 printers.forEach(printer => {
                     const div = document.createElement("div");
                     div.textContent = `${printer.ip} (${printer.usn})`;
-                    div.style.padding = "6px";
+                    div.style.padding = "8px";
                     div.style.borderBottom = "1px solid #ddd";
                     div.style.cursor = "pointer";
 
@@ -199,10 +207,8 @@
 
                     list.appendChild(div);
                 });
-
             } catch (err) {
-                list.innerHTML = "<p>Failed to load printers.</p>";
-                console.error(err);
+                list.innerHTML = "<p>Failed to discover printers.</p>";
             }
         }
 
@@ -216,6 +222,29 @@
         }
 
         document.getElementById("openPrinterList").addEventListener("click", openPrinterModal);
+
+        loadPrinterConfig();
+        loadNetworkStatus();
+
+        // WebSocket for live status updates
+        const ws = new WebSocket(`ws://${window.location.host}/ws`);
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                const ledReasonEl = document.getElementById("ledReason");
+                const printerStateEl = document.getElementById("printerState");
+                if (ledReasonEl) ledReasonEl.textContent = data.ledReason || "--";
+                if (printerStateEl) {
+                    let state = data.printerConnection ? (data.gcodeState || "Connected") : "Offline";
+                    if (data.printerConnection && data.gcodeState === "RUNNING" && data.printProgress > 0) {
+                        state = "Printing " + data.printProgress + "%";
+                    } else if (state && state === state.toUpperCase()) {
+                        state = state.charAt(0) + state.slice(1).toLowerCase();
+                    }
+                    printerStateEl.textContent = state;
+                }
+            } catch (error) { }
+        };
     </script>
 
 </body>

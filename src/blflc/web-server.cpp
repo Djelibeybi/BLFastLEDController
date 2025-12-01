@@ -202,6 +202,8 @@ void handlePrinterConfigJson(AsyncWebServerRequest *request)
         return request->requestAuthentication();
     }
     JsonDocument doc;
+    doc["firmwareversion"] = globalVariables.FWVersion;
+    doc["hostname"] = globalVariables.hostname;
     doc["printerIP"] = printerConfig.printerIP;
     doc["printerSerial"] = printerConfig.serialNumber;
     doc["accessCode"] = printerConfig.accessCode;
@@ -370,6 +372,26 @@ void handleSubmitConfig(AsyncWebServerRequest *request)
     printerConfig.maintMode_update = true;
     printerConfig.discoMode_update = true;
     printerConfig.testcolor_update = true;
+
+    // Force immediate LED update based on current state
+    // If no override mode is active, apply default behavior immediately
+    if (!printerConfig.maintMode && !printerConfig.discoMode &&
+        !printerConfig.testcolorEnabled && !printerConfig.debugwifi &&
+        !printerConfig.progressBarEnabled)
+    {
+        // No override active - set LEDs based on printer state
+        if (printerVariables.printerLedState)
+        {
+            setLedState(printerConfig.runningColor, printerConfig.runningPattern);
+            setRelayState(true);
+        }
+        else
+        {
+            setLedsOff();
+            setRelayState(false);
+        }
+    }
+
     updateleds();
     request->send(200, "text/plain", "OK");
 }
@@ -393,14 +415,36 @@ void sendJsonToAll(JsonDocument &doc)
     ws.textAll(jsonString);
 }
 
-#ifdef USE_ETHERNET
+// Printer and Auth setup pages (available for all builds)
 void handlePrinterSetupPage(AsyncWebServerRequest *request)
 {
     AsyncWebServerResponse *response = request->beginResponse(200, printerSetup_html_gz_mime, printerSetup_html_gz, printerSetup_html_gz_len);
     response->addHeader("Content-Encoding", "gzip");
     request->send(response);
 }
-#else
+
+void handleAuthSetupPage(AsyncWebServerRequest *request)
+{
+    AsyncWebServerResponse *response = request->beginResponse(200, authSetup_html_gz_mime, authSetup_html_gz, authSetup_html_gz_len);
+    response->addHeader("Content-Encoding", "gzip");
+    request->send(response);
+}
+
+void handleDebugSetupPage(AsyncWebServerRequest *request)
+{
+    AsyncWebServerResponse *response = request->beginResponse(200, debugSetup_html_gz_mime, debugSetup_html_gz, debugSetup_html_gz_len);
+    response->addHeader("Content-Encoding", "gzip");
+    request->send(response);
+}
+
+void handleAdvancedSetupPage(AsyncWebServerRequest *request)
+{
+    AsyncWebServerResponse *response = request->beginResponse(200, advancedSetup_html_gz_mime, advancedSetup_html_gz, advancedSetup_html_gz_len);
+    response->addHeader("Content-Encoding", "gzip");
+    request->send(response);
+}
+
+#ifndef USE_ETHERNET
 void handleWiFiScan(AsyncWebServerRequest *request)
 {
     JsonDocument doc;
@@ -494,6 +538,110 @@ void handleSubmitWiFi(AsyncWebServerRequest *request)
     restartRequestTime = millis();
 }
 
+void handleSubmitPrinter(AsyncWebServerRequest *request)
+{
+    if (!isAuthorized(request))
+    {
+        return request->requestAuthentication();
+    }
+
+    String printerIP = request->hasParam("printerIP", true) ? request->getParam("printerIP", true)->value() : "";
+    String printerSerial = request->hasParam("printerSerial", true) ? request->getParam("printerSerial", true)->value() : "";
+    String accessCode = request->hasParam("accessCode", true) ? request->getParam("accessCode", true)->value() : "";
+
+    printerIP.trim();
+    printerSerial.trim();
+    accessCode.trim();
+
+    if (printerIP.length() > 0)
+        strlcpy(printerConfig.printerIP, printerIP.c_str(), sizeof(printerConfig.printerIP));
+    if (printerSerial.length() > 0)
+        strlcpy(printerConfig.serialNumber, printerSerial.c_str(), sizeof(printerConfig.serialNumber));
+    if (accessCode.length() > 0)
+        strlcpy(printerConfig.accessCode, accessCode.c_str(), sizeof(printerConfig.accessCode));
+
+    LogSerial.println(F("[PrinterSetup] Printer settings updated"));
+    saveFileSystem();
+
+    request->send(200, "text/plain", "Printer settings saved, restarting...");
+    shouldRestart = true;
+    restartRequestTime = millis();
+}
+
+void handleSubmitAuth(AsyncWebServerRequest *request)
+{
+    if (!isAuthorized(request))
+    {
+        return request->requestAuthentication();
+    }
+
+    String webUser = request->hasParam("webUser", true) ? request->getParam("webUser", true)->value() : "";
+    String webPass = request->hasParam("webPass", true) ? request->getParam("webPass", true)->value() : "";
+
+    webUser.trim();
+    webPass.trim();
+
+    strlcpy(securityVariables.HTTPUser, webUser.c_str(), sizeof(securityVariables.HTTPUser));
+    strlcpy(securityVariables.HTTPPass, webPass.c_str(), sizeof(securityVariables.HTTPPass));
+
+    LogSerial.println(F("[AuthSetup] Authentication settings updated"));
+    saveFileSystem();
+
+    request->send(200, "text/plain", "Authentication settings saved");
+}
+
+void handleSubmitDebug(AsyncWebServerRequest *request)
+{
+    if (!isAuthorized(request))
+    {
+        return request->requestAuthentication();
+    }
+
+    printerConfig.debugging = request->hasParam("debugging", true) && request->getParam("debugging", true)->value() == "true";
+    printerConfig.debugOnChange = request->hasParam("debugOnChange", true) && request->getParam("debugOnChange", true)->value() == "true";
+    printerConfig.mqttdebug = request->hasParam("mqttdebug", true) && request->getParam("mqttdebug", true)->value() == "true";
+
+    LogSerial.println(F("[DebugSetup] Debug settings updated"));
+    saveFileSystem();
+
+    request->send(200, "text/plain", "Debug settings saved");
+}
+
+void handleSubmitHostname(AsyncWebServerRequest *request)
+{
+    if (!isAuthorized(request))
+    {
+        return request->requestAuthentication();
+    }
+
+    String hostname = request->hasParam("hostname", true) ? request->getParam("hostname", true)->value() : "blflc";
+    hostname.trim();
+    hostname.toLowerCase();
+
+    // Sanitize: only allow alphanumeric and hyphens
+    String sanitized = "";
+    for (unsigned int i = 0; i < hostname.length() && i < 31; i++)
+    {
+        char c = hostname.charAt(i);
+        if (isalnum(c) || c == '-')
+        {
+            sanitized += c;
+        }
+    }
+    if (sanitized.length() == 0)
+    {
+        sanitized = "blflc";
+    }
+
+    strlcpy(globalVariables.hostname, sanitized.c_str(), sizeof(globalVariables.hostname));
+
+    LogSerial.print(F("[Advanced] Hostname updated to: "));
+    LogSerial.println(globalVariables.hostname);
+    saveFileSystem();
+
+    request->send(200, "text/plain", "Hostname saved. Reboot to apply.");
+}
+
 void websocketLoop()
 {
     if (ws.count() == 0)
@@ -517,6 +665,9 @@ void websocketLoop()
         doc["printerConnection"] = printerVariables.online;
         doc["clients"] = ws.count();
         doc["stg_cur"] = printerVariables.stage;
+        doc["gcodeState"] = printerVariables.gcodeState;
+        doc["ledReason"] = printerVariables.ledReason;
+        doc["printProgress"] = printerVariables.printProgress;
         sendJsonToAll(doc);
     }
 }
@@ -672,12 +823,15 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
 
 void setupWebserver()
 {
-    if (!MDNS.begin(globalVariables.Host.c_str()))
+    if (!MDNS.begin(globalVariables.hostname))
     {
         LogSerial.println(F("Error setting up MDNS responder!"));
         while (1)
             delay(500);
     }
+    LogSerial.print(F("[mDNS] Hostname: "));
+    LogSerial.print(globalVariables.hostname);
+    LogSerial.println(F(".local"));
 
     LogSerial.println(F("Setting up webserver"));
 
@@ -703,16 +857,26 @@ void setupWebserver()
     webServer.on("/favicon.ico", HTTP_GET, handleGetfavicon);
     webServer.on("/particleCanvas.js", HTTP_GET, handleGetPCC);
     webServer.on("/config.json", HTTP_GET, handlePrinterConfigJson);
-#ifdef USE_ETHERNET
-    // Ethernet mode - printer setup only (no WiFi configuration)
-    webServer.on("/wifi", HTTP_GET, handlePrinterSetupPage);
+    // Setup pages (available for all builds)
     webServer.on("/printer", HTTP_GET, handlePrinterSetupPage);
+    webServer.on("/auth", HTTP_GET, handleAuthSetupPage);
+    webServer.on("/debug", HTTP_GET, handleDebugSetupPage);
+    webServer.on("/advanced", HTTP_GET, handleAdvancedSetupPage);
+    webServer.on("/submitPrinter", HTTP_POST, handleSubmitPrinter);
+    webServer.on("/submitAuth", HTTP_POST, handleSubmitAuth);
+    webServer.on("/submitDebug", HTTP_POST, handleSubmitDebug);
+    webServer.on("/submitHostname", HTTP_POST, handleSubmitHostname);
+
+#ifdef USE_ETHERNET
+    // Ethernet mode - redirect /wifi to /printer (no WiFi configuration)
+    webServer.on("/wifi", HTTP_GET, [](AsyncWebServerRequest *request)
+                 { request->redirect("/printer"); });
 #else
     // WiFi-specific routes
     webServer.on("/wifi", HTTP_GET, handleWiFiSetupPage);
     webServer.on("/wifiScan", HTTP_GET, handleWiFiScan);
-#endif
     webServer.on("/submitWiFi", HTTP_POST, handleSubmitWiFi);
+#endif
     webServer.on("/style.css", HTTP_GET, handleStyleCss);
     webServer.on("/backuprestore", HTTP_GET, handleConfigPage);
     webServer.on("/configfile.json", HTTP_GET, handleDownloadConfigFile);

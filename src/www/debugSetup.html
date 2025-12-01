@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>BLFLC Debug</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+    <canvas id="particleCanvas" style="background: rgb(20,80,49);"></canvas>
+    <div id="container">
+        <div id="header">
+            <img id="logo" src="/blflc.svg" alt="BLFLC Logo">
+            <h1>Debug Options</h1>
+        </div>
+
+        <nav class="nav-menu" id="navMenu"></nav>
+
+        <form id="debugForm">
+            <p style="margin-top: 0; color: #666; font-size: 13px;">
+                Enable debug logging options. Changes are saved immediately.
+            </p>
+
+            <div class="toggle-switch">
+                <label class="switch">
+                    <input type="checkbox" id="debugging" name="debugging">
+                    <span class="slider"></span>
+                </label>
+                <span>Debugging</span>
+            </div>
+
+            <div class="toggle-switch">
+                <label class="switch">
+                    <input type="checkbox" id="debugOnChange" name="debugOnChange">
+                    <span class="slider"></span>
+                </label>
+                <span>Debugging OnChange Events</span>
+            </div>
+
+            <div class="toggle-switch">
+                <label class="switch">
+                    <input type="checkbox" id="mqttdebug" name="mqttdebug">
+                    <span class="slider"></span>
+                </label>
+                <span>MQTT Logging</span>
+            </div>
+
+            <button type="submit">Save</button>
+        </form>
+
+        <div style="margin-top: 15px;">
+            <button type="button" onclick="window.open('/webserial','_blank')" style="background-color: #17a2b8;">
+                Open Web Serial Log
+            </button>
+        </div>
+
+        <div id="status-bar">
+            <span id="status-led">LED: <span id="ledReason">--</span></span>
+            <span id="status-printer">Printer: <span id="printerState">--</span></span>
+        </div>
+    </div>
+
+    <script src="particleCanvas.js"></script>
+    <div id="toast"><span id="toast-icon"></span><span id="toast-msg">Placeholder</span></div>
+    <script>
+        let isEthernet = false;
+
+        function alertToast(type, message) {
+            const toast = document.getElementById("toast");
+            const icon = document.getElementById("toast-icon");
+            const msg = document.getElementById("toast-msg");
+
+            let iconChar = "i";
+            let color = "#333";
+
+            switch (type.toLowerCase()) {
+                case "success": iconChar = "OK"; color = "#28a745"; break;
+                case "error": iconChar = "X"; color = "#dc3545"; break;
+                case "warning": iconChar = "!"; color = "#ffc107"; break;
+                case "info": default: iconChar = "i"; color = "#17a2b8";
+            }
+
+            toast.style.backgroundColor = color;
+            icon.textContent = iconChar;
+            msg.textContent = message;
+            toast.classList.add("show");
+            setTimeout(() => toast.classList.remove("show"), 3000);
+        }
+
+        function buildNavMenu() {
+            const nav = document.getElementById("navMenu");
+            const currentPage = window.location.pathname;
+
+            let links = [
+                { href: "/", label: "LEDs" },
+                { href: "/printer", label: "Printer" },
+                { href: "/auth", label: "Auth" },
+                { href: "/debug", label: "Debug" },
+                { href: "/advanced", label: "Advanced" }
+            ];
+
+            if (!isEthernet) {
+                links.splice(1, 0, { href: "/wifi", label: "WiFi" });
+            }
+
+            nav.innerHTML = links.map(link =>
+                `<a href="${link.href}" class="${currentPage === link.href ? 'active' : ''}">${link.label}</a>`
+            ).join("");
+        }
+
+        async function loadConfig() {
+            try {
+                const res = await fetch("/config.json");
+                const config = await res.json();
+
+                isEthernet = config.networkType === "ethernet";
+                buildNavMenu();
+            } catch (err) {
+                console.warn("Failed to load config");
+                buildNavMenu();
+            }
+        }
+
+        async function loadDebugConfig() {
+            try {
+                const res = await fetch("/getConfig");
+                const config = await res.json();
+                document.getElementById("debugging").checked = config.debugging || false;
+                document.getElementById("debugOnChange").checked = config.debugOnChange || false;
+                document.getElementById("mqttdebug").checked = config.mqttdebug || false;
+            } catch (err) {
+                console.warn("Failed to load debug config");
+            }
+        }
+
+        document.getElementById("debugForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const debugging = document.getElementById("debugging").checked;
+            const debugOnChange = document.getElementById("debugOnChange").checked;
+            const mqttdebug = document.getElementById("mqttdebug").checked;
+
+            try {
+                const res = await fetch("/submitDebug", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                    body: `debugging=${debugging}&debugOnChange=${debugOnChange}&mqttdebug=${mqttdebug}`
+                });
+
+                if (res.ok) {
+                    alertToast("success", "Debug settings saved");
+                } else {
+                    alertToast("error", "Save failed: " + res.status);
+                }
+            } catch (err) {
+                alertToast("error", "Request failed");
+            }
+        });
+
+        loadConfig();
+        loadDebugConfig();
+
+        // WebSocket for live status updates
+        const ws = new WebSocket(`ws://${window.location.host}/ws`);
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                const ledReasonEl = document.getElementById("ledReason");
+                const printerStateEl = document.getElementById("printerState");
+                if (ledReasonEl) ledReasonEl.textContent = data.ledReason || "--";
+                if (printerStateEl) {
+                    let state = data.printerConnection ? (data.gcodeState || "Connected") : "Offline";
+                    if (data.printerConnection && data.gcodeState === "RUNNING" && data.printProgress > 0) {
+                        state = "Printing " + data.printProgress + "%";
+                    } else if (state && state === state.toUpperCase()) {
+                        state = state.charAt(0) + state.slice(1).toLowerCase();
+                    }
+                    printerStateEl.textContent = state;
+                }
+            } catch (error) { }
+        };
+    </script>
+
+</body>
+
+</html>

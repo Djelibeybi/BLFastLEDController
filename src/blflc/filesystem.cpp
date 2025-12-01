@@ -32,6 +32,7 @@ void saveFileSystem()
     JsonDocument json;
     json["ssid"] = globalVariables.SSID;
     json["appw"] = globalVariables.APPW;
+    json["hostname"] = globalVariables.hostname;
     json["HTTPUser"] = securityVariables.HTTPUser;
     json["HTTPPass"] = securityVariables.HTTPPass;
     json["printerIp"] = printerConfig.printerIP;
@@ -173,6 +174,7 @@ void loadFileSystem()
     {
         strlcpy(globalVariables.SSID, json["ssid"] | "", sizeof(globalVariables.SSID));
         strlcpy(globalVariables.APPW, json["appw"] | "", sizeof(globalVariables.APPW));
+        strlcpy(globalVariables.hostname, json["hostname"] | "blflc", sizeof(globalVariables.hostname));
         strlcpy(securityVariables.HTTPUser, json["HTTPUser"] | "", sizeof(securityVariables.HTTPUser));
         strlcpy(securityVariables.HTTPPass, json["HTTPPass"] | "", sizeof(securityVariables.HTTPPass));
         strlcpy(printerConfig.printerIP, json["printerIp"] | "", sizeof(printerConfig.printerIP));

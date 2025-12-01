@@ -76,6 +76,7 @@ extern "C"
         bool online = false;
         bool finished = false;
         bool initializedLEDs = false;
+        String ledReason = "Initializing";     // Human-readable reason for current LED state
         //Time since
         unsigned long disconnectMQTTms = 0;
 
@@ -105,8 +106,8 @@ extern "C"
     typedef struct GlobalVariablesStruct{
         char SSID[32];
         char APPW[64];
+        char hostname[32] = "blflc";  // mDNS hostname (access via hostname.local)
         String FWVersion = STRVERSION;
-        String Host = "BLFLC";
         bool started = false;
     } GlobalVariables;
 
