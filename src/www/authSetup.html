@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-    <title>BLFLC WiFi Setup</title>
+    <title>BLFLC Authentication</title>
     <link rel="stylesheet" href="/style.css">
 </head>
 
@@ -13,22 +13,26 @@
     <div id="container">
         <div id="header">
             <img id="logo" src="/blflc.svg" alt="BLFLC Logo">
-            <h1>WiFi Setup</h1>
+            <h1>Authentication</h1>
         </div>
 
         <nav class="nav-menu" id="navMenu"></nav>
 
-        <div id="networks">Loading networks...</div>
+        <form id="authForm">
+            <p style="margin-top: 0; color: #666; font-size: 13px;">
+                Set a username and password to protect the web interface. Leave both empty to disable authentication.
+            </p>
 
-        <form id="wifiForm">
-            <label for="ssid">SSID</label>
-            <input type="text" id="ssid" autocomplete="off" required>
-            <input type="hidden" id="bssid" name="bssid">
+            <label for="webUser">Username</label>
+            <input type="text" id="webUser" placeholder="e.g. admin" autocomplete="username">
 
-            <label for="password">Password</label>
-            <input type="password" id="password" autocomplete="new-password" required>
+            <label for="webPass">Password</label>
+            <input type="password" id="webPass" placeholder="e.g. password" autocomplete="new-password">
 
-            <button type="submit">Save & Connect</button>
+            <label for="webPassConfirm">Confirm Password</label>
+            <input type="password" id="webPassConfirm" placeholder="Confirm password" autocomplete="new-password">
+
+            <button type="submit">Save</button>
         </form>
 
         <div id="status-bar">
@@ -40,31 +44,6 @@
     <script src="particleCanvas.js"></script>
     <div id="toast"><span id="toast-icon"></span><span id="toast-msg">Placeholder</span></div>
     <script>
-        function getSignalSVG(rssi) {
-            let level = 0;
-            if (rssi >= -50) level = 4;
-            else if (rssi >= -60) level = 3;
-            else if (rssi >= -70) level = 2;
-            else level = 1;
-
-            return `
-                <svg width="16" height="12" viewBox="0 0 20 16" preserveAspectRatio="xMidYMid meet">
-                    <rect x="0" y="12" width="3" height="4" ${level >= 1 ? 'fill="#444"' : 'fill="#ccc"'}/>
-                    <rect x="5" y="8" width="3" height="8" ${level >= 2 ? 'fill="#444"' : 'fill="#ccc"'}/>
-                    <rect x="10" y="4" width="3" height="12" ${level >= 3 ? 'fill="#444"' : 'fill="#ccc"'}/>
-                    <rect x="15" y="0" width="3" height="16" ${level >= 4 ? 'fill="#444"' : 'fill="#ccc"'}/>
-                </svg>`;
-        }
-
-        function getSignalPercent(rssi) {
-            let percent = Math.max(0, Math.min(100, 2 * (rssi + 100)));
-            return `${percent}%`;
-        }
-
-        function getLockIcon(enc) {
-            return enc ? "L" : "U";
-        }
-
         function alertToast(type, message) {
             const toast = document.getElementById("toast");
             const icon = document.getElementById("toast-icon");
@@ -90,84 +69,72 @@
         function buildNavMenu() {
             const nav = document.getElementById("navMenu");
             const currentPage = window.location.pathname;
-            const links = [
+
+            let links = [
                 { href: "/", label: "LEDs" },
-                { href: "/wifi", label: "WiFi" },
                 { href: "/printer", label: "Printer" },
                 { href: "/auth", label: "Auth" },
                 { href: "/debug", label: "Debug" },
                 { href: "/advanced", label: "Advanced" }
             ];
+
+            // WiFi link only shown if networkType is wifi (checked via config)
+            fetch("/config.json").then(res => res.json()).then(config => {
+                if (config.networkType !== "ethernet") {
+                    links.splice(1, 0, { href: "/wifi", label: "WiFi" });
+                }
+                renderNav(links, currentPage);
+            }).catch(() => renderNav(links, currentPage));
+        }
+
+        function renderNav(links, currentPage) {
+            const nav = document.getElementById("navMenu");
             nav.innerHTML = links.map(link =>
                 `<a href="${link.href}" class="${currentPage === link.href ? 'active' : ''}">${link.label}</a>`
             ).join("");
         }
 
-        async function loadNetworks() {
-            try {
-                alertToast("info", "Scanning for networks...");
-                const res = await fetch("/wifiScan");
-                const data = await res.json();
-                const container = document.getElementById("networks");
-                container.innerHTML = "";
-
-                data.networks.forEach(net => {
-                    net.bssid = net.bssid || "";
-                    const div = document.createElement("div");
-                    div.className = "network";
-                    div.innerHTML = `
-                        ${getSignalSVG(net.rssi)} ${getSignalPercent(net.rssi)} ${net.ssid}
-                        <span style="font-size: 11px; color: #888;">(${net.bssid})</span> ${getLockIcon(net.enc)}
-                    `;
-                    div.addEventListener("click", () => {
-                        document.getElementById("ssid").value = net.ssid;
-                        document.getElementById("bssid").value = net.bssid;
-                        alertToast("info", `Selected: ${net.ssid}`);
-                    });
-                    container.appendChild(div);
-                });
-            } catch (err) {
-                document.getElementById("networks").innerText = "Failed to load networks.";
-                alertToast("error", "Network scan failed");
-            }
-        }
-
-        document.getElementById("wifiForm").addEventListener("submit", async (e) => {
+        document.getElementById("authForm").addEventListener("submit", async (e) => {
             e.preventDefault();
-            const ssid = document.getElementById("ssid").value;
-            const pass = document.getElementById("password").value;
-            const bssid = document.getElementById("bssid").value;
+            const webUser = document.getElementById("webUser").value;
+            const webPass = document.getElementById("webPass").value;
+            const webPassConfirm = document.getElementById("webPassConfirm").value;
+
+            if (webPass !== webPassConfirm) {
+                alertToast("error", "Passwords do not match");
+                return;
+            }
 
             try {
-                const res = await fetch("/submitWiFi", {
+                const res = await fetch("/submitAuth", {
                     method: "POST",
                     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                    body: `ssid=${encodeURIComponent(ssid)}&pass=${encodeURIComponent(pass)}&bssid=${encodeURIComponent(bssid)}`
+                    body: `webUser=${encodeURIComponent(webUser)}&webPass=${encodeURIComponent(webPass)}`
                 });
 
                 if (res.ok) {
-                    alertToast("success", "WiFi settings saved. Restarting...");
+                    alertToast("success", "Authentication settings saved");
                 } else {
                     alertToast("error", "Save failed: " + res.status);
                 }
             } catch (err) {
-                alertToast("info", "Device is likely restarting.");
+                alertToast("error", "Request failed");
             }
         });
 
-        async function loadWifiConfig() {
+        async function loadAuthConfig() {
             try {
                 const res = await fetch("/config.json");
                 const config = await res.json();
-                document.getElementById("ssid").value = config.ssid || "";
+                document.getElementById("webUser").value = config.webUser || "";
+                // Don't populate password fields for security
             } catch (err) {
                 console.warn("Failed to load config");
             }
         }
 
         buildNavMenu();
-        loadWifiConfig();
-        loadNetworks();
+        loadAuthConfig();
 
         // WebSocket for live status updates
         const ws = new WebSocket(`ws://${window.location.host}/ws`);

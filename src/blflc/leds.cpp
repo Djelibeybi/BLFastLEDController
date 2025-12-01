@@ -744,11 +744,11 @@ void updateleds()
     }
 
     // Priority 1: Special modes (highest priority)
-    if (handleMaintenanceMode()) return;
-    if (handleWifiDebugMode()) return;
-    if (handleTestColorMode()) return;
-    if (handleDiscoMode()) return;
-    if (handleProgressBarMode()) return;
+    if (handleMaintenanceMode()) { printerVariables.ledReason = "Maintenance Mode"; return; }
+    if (handleWifiDebugMode()) { printerVariables.ledReason = "WiFi Signal Strength"; return; }
+    if (handleTestColorMode()) { printerVariables.ledReason = "Color Test"; return; }
+    if (handleDiscoMode()) { printerVariables.ledReason = "RGB Cycle"; return; }
+    if (handleProgressBarMode()) { printerVariables.ledReason = "Progress Bar"; return; }
 
     // Debug output
     if (printerConfig.debugging)
@@ -762,7 +762,7 @@ void updateleds()
     }
 
     // Priority 2: Initial boot
-    if (handleInitialBoot()) return;
+    if (handleInitialBoot()) { printerVariables.ledReason = "Booting"; return; }
 
     // Skip remaining handlers if in special mode
     if (printerConfig.testcolorEnabled || printerConfig.maintMode ||
@@ -773,35 +773,94 @@ void updateleds()
     }
 
     // Priority 3: Door interaction
-    if (handleDoorDoubleTap()) return;
+    if (handleDoorDoubleTap()) { printerVariables.ledReason = "Door Toggle"; return; }
 
     // Priority 4: Error states (red indicators)
-    if (handleErrorStates()) return;
+    if (handleErrorStates()) {
+        // Set specific reason based on current error
+        if (printerVariables.stage == 6 || printerVariables.overridestage == 6)
+            printerVariables.ledReason = "Filament Runout";
+        else if (printerVariables.stage == 17 || printerVariables.overridestage == 17)
+            printerVariables.ledReason = "Front Cover Open";
+        else if (printerVariables.stage == 20 || printerVariables.overridestage == 20)
+            printerVariables.ledReason = "Nozzle Temp Fail";
+        else if (printerVariables.stage == 21 || printerVariables.overridestage == 21)
+            printerVariables.ledReason = "Bed Temp Fail";
+        else if (printerVariables.parsedHMSlevel == "Serious")
+            printerVariables.ledReason = "HMS Serious Error";
+        else if (printerVariables.parsedHMSlevel == "Fatal")
+            printerVariables.ledReason = "HMS Fatal Error";
+        else
+            printerVariables.ledReason = "Error";
+        return;
+    }
 
     // Priority 5: Pause states (blue indicators)
-    if (handlePauseStates()) return;
+    if (handlePauseStates()) {
+        if (printerVariables.stage == 34)
+            printerVariables.ledReason = "First Layer Error";
+        else if (printerVariables.stage == 35)
+            printerVariables.ledReason = "Nozzle Clog";
+        else
+            printerVariables.ledReason = "Paused";
+        return;
+    }
 
     // Priority 6: Off states
-    if (handleOffStates()) return;
+    if (handleOffStates()) {
+        if (!printerVariables.online)
+            printerVariables.ledReason = "Printer Offline";
+        else
+            printerVariables.ledReason = "Chamber Light Off";
+        return;
+    }
 
     // Priority 7: Stage-specific colors
-    if (handleStageColors()) return;
+    if (handleStageColors()) {
+        if (printerVariables.stage == 14)
+            printerVariables.ledReason = "Cleaning Nozzle";
+        else if (printerVariables.stage == 1)
+            printerVariables.ledReason = "Bed Leveling";
+        else if (printerVariables.stage == 8)
+            printerVariables.ledReason = "Calibrating Extrusion";
+        else if (printerVariables.stage == 9)
+            printerVariables.ledReason = "Scanning Bed";
+        else if (printerVariables.stage == 10 || printerVariables.overridestage == 10)
+            printerVariables.ledReason = "First Layer Scan";
+        else if (printerVariables.stage == 12)
+            printerVariables.ledReason = "Calibrating Lidar";
+        else
+            printerVariables.ledReason = "Stage " + String(printerVariables.stage);
+        return;
+    }
 
     // Calculate finish window for remaining handlers
     bool inFinishWindow = (printerConfig.finishExit && printerVariables.waitingForDoor) ||
                           (!printerConfig.finishExit && ((millis() - printerConfig.finishStartms) < printerConfig.finishTimeOut));
 
     // Priority 8: Idle timeout
-    if (handleIdleTimeout(inFinishWindow)) return;
+    if (handleIdleTimeout(inFinishWindow)) { printerVariables.ledReason = "Idle Timeout"; return; }
 
     // Priority 9: Running/active states
-    if (handleRunningStates(inFinishWindow)) return;
+    if (handleRunningStates(inFinishWindow)) {
+        if (printerVariables.stage == 2)
+            printerVariables.ledReason = "Preheating";
+        else if (printerVariables.stage == 0 && printerVariables.gcodeState == "RUNNING")
+            printerVariables.ledReason = "Printing";
+        else if (printerVariables.gcodeState == "PREPARE")
+            printerVariables.ledReason = "Preparing";
+        else if (printerVariables.stage == -1 || printerVariables.stage == 255)
+            printerVariables.ledReason = "Idle";
+        else
+            printerVariables.ledReason = printerVariables.gcodeState;
+        return;
+    }
 
     // Priority 10: Finish indication
-    if (handleFinishIndication()) return;
+    if (handleFinishIndication()) { printerVariables.ledReason = "Print Finished"; return; }
 
     // Priority 11: LED replication ON
-    if (handleLedReplicationOn(inFinishWindow)) return;
+    if (handleLedReplicationOn(inFinishWindow)) { printerVariables.ledReason = "Chamber Light On"; return; }
 
     // Ensure doorSwitchTriggered is processed (recursive call if needed)
     if (printerVariables.doorSwitchTriggered)

@@ -325,3 +325,62 @@ form {
   width: 50px;
   display: inline-block;
 }
+
+/* Navigation menu */
+.nav-menu {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 15px;
+  flex-wrap: wrap;
+}
+
+.nav-menu a {
+  display: inline-block;
+  padding: 8px 16px;
+  background-color: rgba(255, 255, 255, 0.9);
+  color: #333;
+  text-decoration: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: bold;
+  transition: background-color 0.2s;
+}
+
+.nav-menu a:hover {
+  background-color: #fff;
+}
+
+.nav-menu a.active {
+  background-color: #484;
+  color: white;
+}
+
+.nav-menu a.active:hover {
+  background-color: #4CAF50;
+}
+
+/* Status bar */
+#status-bar {
+  display: flex;
+  justify-content: space-between;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  padding: 8px 15px;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-top: 10px;
+}
+
+#status-bar span {
+  display: inline-block;
+}
+
+#status-led, #status-printer {
+  color: #aaa;
+}
+
+#ledReason, #printerState {
+  color: #fff;
+  font-weight: bold;
+}

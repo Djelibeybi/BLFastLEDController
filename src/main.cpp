@@ -159,8 +159,9 @@ void loop()
             // Ethernet disconnected - LED feedback handled by event handler
             // Connection will auto-restore when cable reconnected
         }
-        else
+        else if (!printerVariables.online)
         {
+            // Only search for printers if MQTT is not connected
             bblSearchPrinters();
         }
 #else
@@ -191,8 +192,9 @@ void loop()
         {
             dnsServer.processNextRequest();
         }
-        if (WiFi.status() == WL_CONNECTED && WiFi.getMode() != WIFI_AP)
+        if (WiFi.status() == WL_CONNECTED && WiFi.getMode() != WIFI_AP && !printerVariables.online)
         {
+            // Only search for printers if MQTT is not connected
             bblSearchPrinters();
         }
 #endif

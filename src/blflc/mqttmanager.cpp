@@ -609,14 +609,6 @@ void ParseCallback(char *topic, byte *payload, unsigned int length)
         return;
     }
 
-    // Debug logging
-    if (printerConfig.debugging)
-    {
-        LogSerial.print(F("MQTT message received. "));
-        LogSerial.print(F("Free Heap: "));
-        LogSerial.println(ESP.getFreeHeap());
-    }
-
     // Early exit for noise commands
     if (shouldSkipCommand(messageobject))
         return;

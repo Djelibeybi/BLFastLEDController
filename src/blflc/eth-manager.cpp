@@ -8,7 +8,7 @@ void onEthEvent(WiFiEvent_t event) {
     switch (event) {
         case ARDUINO_EVENT_ETH_START:
             Serial.println(F("[Ethernet] Started"));
-            ETH.setHostname(globalVariables.Host.c_str());
+            ETH.setHostname(globalVariables.hostname);
             break;
 
         case ARDUINO_EVENT_ETH_CONNECTED:
