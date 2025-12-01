@@ -277,9 +277,7 @@ void handleSubmitConfig(AsyncWebServerRequest *request)
     printerConfig.finishTimeOut = getSafeParamInt(request, "finishTimerMins") * 60000;
     printerConfig.inactivityEnabled = request->hasParam("inactivityEnabled", true);
     printerConfig.inactivityTimeOut = getSafeParamInt(request, "inactivityMins") * 60000;
-    printerConfig.debugging = request->hasParam("debugging", true);
-    printerConfig.debugOnChange = request->hasParam("debugOnChange", true);
-    printerConfig.mqttdebug = request->hasParam("mqttdebug", true);
+    // Debug settings handled separately by handleSubmitDebug
     printerVariables.isP1Printer = request->hasParam("p1Printer", true);
     printerVariables.useDoorSwitch = request->hasParam("doorSwitch", true);
 
