@@ -4,105 +4,90 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-BL Led Controller (BLLC) is an ESP32-based firmware that connects to Bambu Lab 3D printers (X1, X1C, P1P, P1S) via MQTT and controls an external LED strip based on printer state. The device provides visual feedback for printing stages, errors, and HMS (Health Management System) alerts.
+ESP32 firmware that connects to Bambu Lab 3D printers (X1, X1C, P1P, P1S) via MQTT and controls addressable RGB LED strips using FastLED. Supports WiFi and Ethernet connectivity with visual feedback for printing stages, errors, and HMS alerts.
 
 ## Build Commands
 
-This is a PlatformIO project. All commands should be run from the project root.
+PlatformIO project. Use `uv run pio` for all commands:
 
 ```bash
-# Build for ESP32 (default board)
-pio run -e esp32dev
+# Build WiFi firmware
+uv run pio run -e esp32dev
 
-# Build for ESP32-S3
-pio run -e esp32s3dev
+# Build Ethernet firmware (Gledopto Elite 2D/4D)
+uv run pio run -e esp32_eth_gledopto
 
-# Upload firmware to device
-pio run -e esp32dev -t upload
+# Build Ethernet firmware (IoTorero ESP32 ETH)
+uv run pio run -e esp32_eth_iotorero
+
+# Upload firmware
+uv run pio run -e esp32dev -t upload
 
 # Upload filesystem (LittleFS)
-pio run -e esp32dev -t uploadfs
-
-# Clean build
-pio run -e esp32dev -t clean
+uv run pio run -e esp32dev -t uploadfs
 
 # Monitor serial output
-pio device monitor -b 115200
+uv run pio device monitor -b 115200
+
+# Clean build
+uv run pio run -e esp32dev -t clean
 ```
 
-## Build Outputs
-
-After building, firmware files are generated in `.firmware/`:
-- `BLLC_V{version}.bin` - Merged firmware for initial flashing
-- `BLLC_V{version}.bin.ota` - OTA update file
+Build outputs in `.firmware/`:
+- `BLFLC_V{version}.bin` - Merged firmware for initial flash
+- `BLFLC_V{version}.bin.ota` - OTA update file
 
 ## Architecture
 
-### Core Components (src/blled/)
+### Core Modules (src/blflc/)
 
-- **main.cpp** - Entry point; initializes LEDs, filesystem, WiFi, webserver, and MQTT; main loop handles WiFi reconnection and printer discovery
-- **types.h** - Global state structures: `PrinterVariables` (printer state), `PrinterConfig` (LED settings), `GlobalVariables` (WiFi credentials)
-- **mqttmanager.h** - MQTT client connecting to Bambu printer on port 8883 (TLS); parses printer status, gcode state, HMS errors, and door sensor; runs as FreeRTOS task
-- **web-server.h** - AsyncWebServer on port 80; serves compressed HTML from PROGMEM; handles configuration, OTA updates, WiFi setup, and WebSocket status updates
-- **leds.h** - PWM LED control using 5 channels (R, G, B, warm white, cold white); `tweenToColor()` for smooth transitions; `updateleds()` state machine for LED behavior
-- **filesystem.h** - LittleFS configuration persistence (`/blledconfig.json`)
-- **wifi-manager.h** - WiFi connection management; AP mode fallback for initial setup
-- **bblPrinterDiscovery.h** - SSDP-based printer discovery on local network
+| Module | Purpose |
+|--------|---------|
+| `types.h` | Global structs: `PrinterVariables`, `PrinterConfig`, `LedConfig` |
+| `leds.cpp` | FastLED control, `updateleds()` state machine |
+| `patterns.cpp` | LED effects: solid, breathing, chase, rainbow, progress |
+| `mqttmanager.cpp` | MQTT client (TLS port 8883), FreeRTOS task |
+| `mqttparsingutility.cpp` | JSON parsing: gcode_state, stage, HMS errors |
+| `web-server.cpp` | AsyncWebServer, WebSocket status updates |
+| `filesystem.cpp` | LittleFS persistence (`/blledconfig.json`) |
+| `wifi-manager.cpp` | WiFi connection, AP mode fallback |
+| `eth-manager.cpp` | Ethernet support for LAN8720A PHY boards |
+| `improv-serial.cpp` | Improv WiFi provisioning protocol |
 
 ### Web Assets (src/www/)
 
-HTML/CSS/JS files are compressed at build time by `pre_build.py` into `www.h` as gzip-compressed byte arrays stored in PROGMEM.
+HTML/CSS/JS compressed at build time by `pre_build.py` into `www.h` as gzip-compressed PROGMEM arrays.
 
 ### Key Data Flow
 
-1. MQTT receives printer status JSON from Bambu printer
-2. `ParseCallback()` extracts: gcode_state, stg_cur (stage), hms (errors), lights_report, home_flag (door)
-3. State changes trigger `updateleds()` which determines LED color based on priority:
-   - Maintenance/Test/Disco modes (override all)
+1. MQTT receives printer JSON → `ParseCallback()` extracts state
+2. State changes trigger `updateleds()` priority-based handler chain:
+   - Maintenance/Test/Disco/Progress Bar modes
    - Error states (HMS fatal/serious, temperature failures)
-   - Print states (pause, stages 0-35)
-   - Finish indication
-   - LED replication (mirror chamber light)
-   - Inactivity timeout
+   - Pause states (stages 16, 30, 34, 35)
+   - Stage-specific colors (1, 8, 9, 10, 12, 14)
+   - Idle timeout → Running states → Finish indication → LED replication
 
-### LED Pin Assignments (ESP32)
+### P1 Printer Compatibility
 
-| Color | GPIO | PWM Channel |
-|-------|------|-------------|
-| Red   | 17   | 0           |
-| Green | 16   | 1           |
-| Blue  | 18   | 2           |
-| Warm  | 15   | 3           |
-| Cold  | 11   | 4           |
+P1 printers don't send `gcode_state` in MQTT. The firmware infers state from `mc_percent`:
+- 1-99%: Sets `gcodeState = "RUNNING"`
+- 100%: Sets `gcodeState = "FINISH"`
 
-### Printer Stages
+### HMS Override System
 
-Key stage values from MQTT `stg_cur`:
-- -1/255: IDLE
-- 0: Printing
-- 1: Bed leveling
-- 2: Preheating
-- 8: Calibrating extrusion
-- 9: Scanning bed
-- 10: First layer inspection
-- 14: Cleaning nozzle
-- 16/30: Paused
+`overridestage` (default 999 = inactive) can override `stage` for LED behavior. Set by `applyHMSOverride()` when HMS errors are parsed.
 
-## Configuration
+## Git Workflow
 
-Device stores config in LittleFS at `/blledconfig.json`. Key settings include:
-- WiFi credentials (SSID, password)
-- Printer connection (IP, serial number, access code)
-- LED behavior modes and custom colors
-- HMS ignore list for suppressing specific error codes
+Always use `--no-gpg-sign` when committing:
+```bash
+git commit --no-gpg-sign -m "message"
+```
 
-## Web Interface Endpoints
+## Testing
 
-- `/` - Main setup page (LED configuration)
-- `/wifi` - WiFi and printer setup
-- `/fwupdate` - OTA firmware upload
-- `/backuprestore` - Config backup/restore
-- `/webserial` - Live debug log viewer
-- `/factoryreset` - Wipe all settings
-- Always use "uv run pio ..." when you want to run the PlatformIO CLI
-- Always add --no-gpg-sign when committing changes to git.
+```bash
+# Run printer simulator for testing
+python bblp_sim.py
+```

@@ -2,12 +2,10 @@
 .vscode
 .firmware
 .venv
+.cache
 build/
 .python-version
 src/www/www.h
 .DS_Store
 **/.DS_Store
-.claude
-.serena
-PROJECT_INDEX.*
-CLAUDE.md
+compile_commands.json
