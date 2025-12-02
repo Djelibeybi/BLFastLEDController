@@ -1,12 +1,12 @@
-# Project Index: BLLEDController-NG
+# Project Index: BLFastLEDController
 
-Generated: 2025-11-30
-Version: 2.3.0.argb.1
-Codename: Balder
+Generated: 2025-12-02
+Version: 3.3.1
+Codename: Baldrick
 
 ## Overview
 
-ESP32 firmware that connects to Bambu Lab 3D printers (X1, X1C, P1P, P1S) via MQTT and controls addressable RGB LED strips based on printer state using FastLED.
+ESP32 firmware that connects to Bambu Lab 3D printers (X1, X1C, P1P, P1S) via MQTT and controls addressable RGB LED strips based on printer state using FastLED. Supports WiFi and Ethernet connectivity.
 
 ## Project Structure
 
@@ -14,44 +14,58 @@ ESP32 firmware that connects to Bambu Lab 3D printers (X1, X1C, P1P, P1S) via MQ
 BLLEDController-NG/
 ├── src/
 │   ├── main.cpp              # Entry point: setup(), loop()
-│   ├── blled/                # Core firmware modules
+│   ├── blflc/                # Core firmware modules
 │   │   ├── types.h           # Global data structures
-│   │   ├── leds.h            # LED control (FastLED)
-│   │   ├── patterns.h        # LED patterns (solid, breathing, chase, rainbow, progress)
-│   │   ├── mqttmanager.h     # MQTT client for Bambu printer
-│   │   ├── mqttparsingutility.h # MQTT JSON parsing
-│   │   ├── web-server.h      # AsyncWebServer + WebSocket
-│   │   ├── filesystem.h      # LittleFS config persistence
-│   │   ├── wifi-manager.h    # WiFi connection + AP mode
-│   │   ├── bblPrinterDiscovery.h # SSDP printer discovery
-│   │   ├── ssdp.h            # SSDP protocol
-│   │   ├── serialmanager.h   # Serial communication
-│   │   ├── logSerial.h       # Debug logging
-│   │   └── AutoGrowBufferStream.h # Buffer utilities
+│   │   ├── leds.h/cpp        # LED control (FastLED)
+│   │   ├── patterns.h/cpp    # LED patterns (solid, breathing, chase, rainbow, progress)
+│   │   ├── mqttmanager.h/cpp # MQTT client for Bambu printer
+│   │   ├── mqttparsingutility.h/cpp # MQTT JSON parsing
+│   │   ├── web-server.h/cpp  # AsyncWebServer + WebSocket
+│   │   ├── filesystem.h/cpp  # LittleFS config persistence
+│   │   ├── wifi-manager.h/cpp # WiFi connection + AP mode
+│   │   ├── eth-manager.h/cpp # Ethernet support (LAN8720A)
+│   │   ├── improv.h/cpp      # Improv WiFi provisioning
+│   │   ├── improv-serial.h/cpp # Improv Serial protocol
+│   │   ├── bblprinterdiscovery.h/cpp # SSDP printer discovery
+│   │   ├── ssdp.h/cpp        # SSDP protocol
+│   │   ├── logserial.h/cpp   # Debug logging (WebSerial)
+│   │   └── autogrowbufferstream.h/cpp # Buffer utilities
 │   └── www/                  # Web interface assets
-│       ├── setupPage.html    # Main LED configuration
-│       ├── wifiSetup.html    # WiFi/printer setup
+│       ├── setupPage.html    # Main LED configuration → /submitConfig
+│       ├── wifiSetup.html    # WiFi setup → /submitWiFi
+│       ├── printerSetup.html # Printer setup → /submitPrinter
+│       ├── authSetup.html    # Auth setup → /submitAuth
+│       ├── debugSetup.html   # Debug setup → /submitDebug
+│       ├── advancedSetup.html # Advanced setup → /submitHostname
 │       ├── updatePage.html   # OTA firmware update
 │       ├── backupRestore.html # Config backup/restore
 │       ├── webSerialPage.html # Debug log viewer
 │       ├── style.css         # Shared styles
 │       ├── particleCanvas.js # UI effects
-│       ├── blled.svg         # Logo
+│       ├── blflc.svg         # Logo
 │       ├── favicon.png       # Icon
 │       └── www.h             # Compressed assets (generated)
-├── docs/
-│   └── manual.md             # User manual
+├── .github/workflows/
+│   └── build-and-release.yml # CI/CD workflow
 ├── platformio.ini            # PlatformIO configuration
 ├── pre_build.py              # HTML compression script
 ├── merge_firmware.py         # Firmware merger
 └── bblp_sim.py               # Printer simulator (testing)
 ```
 
-## Core Data Structures (`src/blled/types.h`)
+## Build Environments
+
+| Environment | Board | Features |
+|-------------|-------|----------|
+| `esp32dev` | ESP32 DevKit | WiFi + Improv Serial |
+| `esp32_eth_gledopto` | Gledopto Elite 2D/4D | Ethernet (LAN8720A) |
+| `esp32_eth_iotorero` | IoTorero ESP32 ETH | Ethernet (LAN8720A) |
+
+## Core Data Structures (`src/blflc/types.h`)
 
 | Structure | Purpose |
 |-----------|---------|
-| `PrinterVariables` | Printer state: gcodeState, stage, HMS errors, door status |
+| `PrinterVariables` | Printer state: gcodeState, stage, overridestage, HMS errors, door status, ledReason |
 | `PrinterConfig` | Settings: IP, colors, patterns, timeouts, relay config |
 | `GlobalVariables` | WiFi credentials, firmware version |
 | `LedConfig` | LED strip: chipType, colorOrder, ledCount, pins |
@@ -66,76 +80,84 @@ BLLEDController-NG/
 ### LED Patterns
 `SOLID`, `BREATHING`, `CHASE`, `RAINBOW`, `PROGRESS`
 
-## Key Functions
-
-### Entry Points (`src/main.cpp`)
-- `setup()` - Initializes LEDs, filesystem, WiFi, webserver, MQTT
-- `loop()` - Handles WiFi reconnection, printer discovery
-
-### LED Control (`src/blled/leds.h`)
-- `setupLeds()` - Initialize FastLED with configured chip/order
-- `updateleds()` - State machine for LED behavior
-- `setLedColor()` - Set color with pattern
-- `setLedState()` - Control LED on/off
-- `setRelayState()` - Control external relay
-
-### Patterns (`src/blled/patterns.h`)
-- `applyPattern()` - Main pattern dispatcher
-- `applySolidPattern()` - Static color
-- `applyBreathingPattern()` - Fade in/out
-- `applyChasePattern()` - Running light
-- `applyRainbowPattern()` - Color cycle
-- `applyProgressPattern()` - Print progress bar
-- `runTestSequence()` - LED test mode
-
-### MQTT (`src/blled/mqttmanager.h`)
-- `setupMqtt()` - Initialize MQTT client
-- `connectMqtt()` - Connect to printer (TLS port 8883)
-- `mqttTask()` - FreeRTOS task for MQTT
-- `ParseCallback()` - Parse printer JSON status
-- `mqttloop()` - MQTT maintenance loop
-
-### Web Server (`src/blled/web-server.h`)
-- `setupWebserver()` - Initialize AsyncWebServer
-- `handleSetup()` - Serve main config page
-- `handleSubmitConfig()` - Save LED configuration
-- `handleWiFiSetupPage()` - WiFi setup page
-- `handleSubmitWiFi()` - Save WiFi/printer config
-- `handleLedTest()` - Trigger LED test
-- `websocketLoop()` - Push status updates
-
-### Filesystem (`src/blled/filesystem.h`)
-- `setupFileSystem()` - Initialize LittleFS
-- `loadFileSystem()` - Load config from `/blledconfig.json`
-- `saveFileSystem()` - Persist configuration
-- `deleteFileSystem()` - Factory reset
-
-### WiFi (`src/blled/wifi-manager.h`)
-- `connectToWifi()` - Connect with stored credentials
-- `startAPMode()` - Fallback AP for setup
-- `scanNetwork()` - WiFi network scan
-
-### Printer Discovery (`src/blled/bblPrinterDiscovery.h`)
-- `bblSearchPrinters()` - SSDP discovery
-- `bblIsPrinterKnown()` - Check known printers
-
 ## Web Endpoints
 
-| Endpoint | Handler | Description |
-|----------|---------|-------------|
-| `/` | `handleSetup` | Main LED setup page |
-| `/wifi` | `handleWiFiSetupPage` | WiFi/printer setup |
-| `/fwupdate` | `handleUpdatePage` | OTA firmware upload |
-| `/backuprestore` | `handleConfigPage` | Config backup/restore |
-| `/webserial` | `handleWebSerialPage` | Debug log viewer |
-| `/submitconfig` | `handleSubmitConfig` | POST LED config |
-| `/submitwifi` | `handleSubmitWiFi` | POST WiFi config |
-| `/config` | `handleGetConfig` | GET current config |
-| `/printerconfig` | `handlePrinterConfigJson` | GET printer config |
-| `/ledtest` | `handleLedTest` | Trigger LED test |
-| `/wifiscan` | `handleWiFiScan` | Scan WiFi networks |
-| `/printerlist` | `handlePrinterList` | List discovered printers |
-| `/factoryreset` | `handleFactoryReset` | Wipe all settings |
+| Page | Endpoint | Handler |
+|------|----------|---------|
+| LED Setup | `/submitConfig` | `handleSubmitConfig` |
+| WiFi Setup | `/submitWiFi` | `handleSubmitWiFi` |
+| Printer Setup | `/submitPrinter` | `handleSubmitPrinter` |
+| Auth Setup | `/submitAuth` | `handleSubmitAuth` |
+| Debug Setup | `/submitDebug` | `handleSubmitDebug` |
+| Advanced | `/submitHostname` | `handleSubmitHostname` |
+
+### Read-Only Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `/` | Main LED setup page |
+| `/wifi` | WiFi setup |
+| `/printer` | Printer setup |
+| `/auth` | Auth setup |
+| `/debug` | Debug setup |
+| `/advanced` | Advanced setup |
+| `/fwupdate` | OTA firmware upload |
+| `/backuprestore` | Config backup/restore |
+| `/webserial` | Debug log viewer |
+| `/getConfig` | GET current config JSON |
+| `/config.json` | GET network type info |
+| `/api/ledtest` | Trigger LED test |
+| `/wifiscan` | Scan WiFi networks |
+| `/printerlist` | List discovered printers |
+| `/factoryreset` | Wipe all settings |
+| `/reboot` | Restart device |
+
+## Key Functions
+
+### MQTT (`src/blflc/mqttmanager.cpp`)
+- `parseHMS()` - Parse HMS errors and apply overrides
+- `applyHMSOverride()` - Map HMS codes to stage overrides
+- `ParseCallback()` - Parse printer JSON status
+
+### LED Control (`src/blflc/leds.cpp`)
+- `updateleds()` - Main state machine for LED behavior
+- `handleStageColors()` - Stage-specific color handling
+- `setLedState()` - Control LED color and pattern
+
+## Printer Stages (MQTT `stg_cur`)
+
+| Value | Stage |
+|-------|-------|
+| -1/255 | IDLE |
+| 0 | Printing |
+| 1 | Bed leveling |
+| 2 | Preheating |
+| 8 | Calibrating extrusion |
+| 9 | Scanning bed |
+| 10 | First layer inspection |
+| 12 | Calibrating micro lidar |
+| 14 | Cleaning nozzle |
+| 16/30 | Paused |
+| 34 | First layer error (paused) |
+| 35 | Nozzle clog (paused) |
+
+## HMS Stage Override
+
+The `overridestage` variable can override `stage` for LED behavior:
+- Value 999 = no override (inactive)
+- Set by HMS error codes via `applyHMSOverride()`
+- HMS code `0x0C0003000003000B` → stage 10 (First Layer Inspection)
+
+## LED Priority (highest to lowest)
+
+1. Maintenance/Test/Disco/Progress Bar modes
+2. Error states (HMS fatal/serious, temperature failures)
+3. Pause states (stage 16, 30, 34, 35)
+4. Stage-specific colors (1, 8, 9, 10, 12, 14)
+5. Idle timeout
+6. Running/active states
+7. Finish indication
+8. LED replication (mirror chamber light)
 
 ## Dependencies
 
@@ -148,12 +170,19 @@ BLLEDController-NG/
 | AsyncTCP | latest | Async TCP |
 | ESPAsyncWebServer | latest | Web server |
 | MycilaWebSerial | ^8.1.1 | Debug serial over web |
+| improv-wifi/sdk-cpp | v1.2.5 | Improv WiFi provisioning |
 
 ## Build Commands
 
 ```bash
-# Build ESP32 firmware
+# Build WiFi firmware
 uv run pio run -e esp32dev
+
+# Build Ethernet firmware (Gledopto)
+uv run pio run -e esp32_eth_gledopto
+
+# Build Ethernet firmware (IoTorero)
+uv run pio run -e esp32_eth_iotorero
 
 # Upload firmware
 uv run pio run -e esp32dev -t upload
@@ -171,8 +200,8 @@ uv run pio run -e esp32dev -t clean
 ## Build Outputs
 
 Location: `.firmware/`
-- `BLLC_V{version}.bin` - Merged firmware for initial flash
-- `BLLC_V{version}.bin.ota` - OTA update file
+- `BLFLC_V{version}.bin` - Merged firmware for initial flash
+- `BLFLC_V{version}.bin.ota` - OTA update file
 
 ## Configuration
 
@@ -184,29 +213,7 @@ Key settings:
 - LED: chip type, color order, count, data pin, clock pin
 - Colors: per-state RGB values with patterns
 - Behavior: finish timeout, inactivity timeout, relay config
-
-## Printer Stages (MQTT `stg_cur`)
-
-| Value | Stage |
-|-------|-------|
-| -1/255 | IDLE |
-| 0 | Printing |
-| 1 | Bed leveling |
-| 2 | Preheating |
-| 8 | Calibrating extrusion |
-| 9 | Scanning bed |
-| 10 | First layer inspection |
-| 14 | Cleaning nozzle |
-| 16/30 | Paused |
-
-## LED Priority (highest to lowest)
-
-1. Maintenance/Test/Disco modes
-2. Error states (HMS fatal/serious, temperature failures)
-3. Print states (pause, stages 0-35)
-4. Finish indication
-5. LED replication (mirror chamber light)
-6. Inactivity timeout
+- Debug: debugging, debugOnChange, mqttdebug
 
 ## Testing
 
@@ -218,6 +225,8 @@ python bblp_sim.py
 ## Session Memories
 
 Previous work sessions documented in `.serena/memories/`:
-- `session-improvements-2025-11` - November improvements
-- `session-relay-feature-2025-11` - Relay feature implementation
-- `session-rgbw-fix-2025-11` - RGBW color order fix
+- `session-led-and-config-fixes-2025-12` - LED status and config save fixes
+- `session-web-ui-overhaul-2025-12` - Major UI overhaul
+- `session-ethernet-support-2025-12` - Ethernet support
+- `session-improv-serial-2025-12` - Improv Serial implementation
+- `session-progress-bar-fix-2025-12` - Progress bar fix

@@ -1,10 +1,10 @@
 {
   "project": {
-    "name": "BLLEDController-NG",
-    "version": "2.3.0.argb.1",
-    "codename": "Balder",
-    "description": "ESP32 firmware for Bambu Lab 3D printer LED control",
-    "generated": "2025-11-30",
+    "name": "BLFastLEDController",
+    "version": "3.3.1",
+    "codename": "Baldrick",
+    "description": "ESP32 firmware for Bambu Lab 3D printer LED control via MQTT. Supports WiFi and Ethernet connectivity.",
+    "generated": "2025-12-02",
     "platform": "espressif32",
     "board": "esp32dev",
     "framework": "arduino"
@@ -14,71 +14,135 @@
     "setup": "src/main.cpp:setup()",
     "loop": "src/main.cpp:loop()"
   },
+  "build_environments": {
+    "esp32dev": {
+      "description": "WiFi + Improv Serial",
+      "board": "ESP32 DevKit"
+    },
+    "esp32_eth_gledopto": {
+      "description": "Ethernet (LAN8720A)",
+      "board": "Gledopto Elite 2D/4D"
+    },
+    "esp32_eth_iotorero": {
+      "description": "Ethernet (LAN8720A)",
+      "board": "IoTorero ESP32 ETH"
+    }
+  },
   "modules": {
     "types": {
-      "path": "src/blled/types.h",
+      "path": "src/blflc/types.h",
       "purpose": "Global data structures",
-      "exports": ["PrinterVariables", "PrinterConfig", "GlobalVariables", "LedConfig", "COLOR", "LedChipType", "LedColorOrder", "LedPattern"]
+      "exports": ["PrinterVariables", "PrinterConfig", "GlobalVariables", "LedConfig", "SecurityVariables", "COLOR", "LedChipType", "LedColorOrder", "WhitePlacement", "LedPattern"]
     },
     "leds": {
-      "path": "src/blled/leds.h",
+      "path": "src/blflc/leds.h",
       "purpose": "FastLED control and state machine",
       "exports": ["setupLeds", "updateleds", "setLedColor", "setLedState", "setLedsOff", "setRelayState", "setupRelay"]
     },
     "patterns": {
-      "path": "src/blled/patterns.h",
+      "path": "src/blflc/patterns.h",
       "purpose": "LED pattern effects",
       "exports": ["applyPattern", "applySolidPattern", "applyBreathingPattern", "applyChasePattern", "applyRainbowPattern", "applyProgressPattern", "runTestSequence", "stopTestSequence"]
     },
     "mqtt": {
-      "path": "src/blled/mqttmanager.h",
+      "path": "src/blflc/mqttmanager.h",
       "purpose": "MQTT client for Bambu printer",
       "exports": ["setupMqtt", "connectMqtt", "mqttTask", "ParseCallback", "mqttloop", "controlChamberLight"]
     },
+    "mqtt_parsing": {
+      "path": "src/blflc/mqttparsingutility.h",
+      "purpose": "MQTT JSON parsing utilities",
+      "exports": ["parseGcodeState", "parseStage", "parsePrintProgress", "parseLightsReport", "parseHMS", "applyHMSOverride"]
+    },
     "web_server": {
-      "path": "src/blled/web-server.h",
+      "path": "src/blflc/web-server.h",
       "purpose": "AsyncWebServer and WebSocket",
-      "exports": ["setupWebserver", "handleSetup", "handleSubmitConfig", "handleWiFiSetupPage", "handleSubmitWiFi", "websocketLoop", "handleLedTest"]
+      "exports": ["setupWebserver", "handleSetup", "handleSubmitConfig", "handleWiFiSetupPage", "handleSubmitWiFi", "handleSubmitPrinter", "handleSubmitAuth", "handleSubmitDebug", "handleSubmitHostname", "websocketLoop", "handleLedTest"]
     },
     "filesystem": {
-      "path": "src/blled/filesystem.h",
+      "path": "src/blflc/filesystem.h",
       "purpose": "LittleFS config persistence",
       "exports": ["setupFileSystem", "loadFileSystem", "saveFileSystem", "deleteFileSystem", "hasFileSystem"]
     },
     "wifi_manager": {
-      "path": "src/blled/wifi-manager.h",
+      "path": "src/blflc/wifi-manager.h",
       "purpose": "WiFi connection and AP mode",
       "exports": ["connectToWifi", "startAPMode", "scanNetwork", "configModeCallback"]
     },
+    "eth_manager": {
+      "path": "src/blflc/eth-manager.h",
+      "purpose": "Ethernet support for LAN8720A PHY boards",
+      "exports": ["setupEthernet", "isEthernetConnected", "getEthernetIP"]
+    },
+    "improv": {
+      "path": "src/blflc/improv.h",
+      "purpose": "Improv WiFi provisioning protocol",
+      "exports": ["setupImprov", "improvLoop"]
+    },
+    "improv_serial": {
+      "path": "src/blflc/improv-serial.h",
+      "purpose": "Improv Serial protocol implementation",
+      "exports": ["setupImprovSerial", "improvSerialLoop"]
+    },
     "printer_discovery": {
-      "path": "src/blled/bblPrinterDiscovery.h",
+      "path": "src/blflc/bblprinterdiscovery.h",
       "purpose": "SSDP printer discovery",
       "exports": ["bblSearchPrinters", "bblIsPrinterKnown", "bblPrintKnownPrinters", "BBLPrinter"]
+    },
+    "ssdp": {
+      "path": "src/blflc/ssdp.h",
+      "purpose": "SSDP protocol implementation",
+      "exports": ["setupSSDP", "ssdpLoop"]
+    },
+    "logserial": {
+      "path": "src/blflc/logserial.h",
+      "purpose": "Debug logging via WebSerial",
+      "exports": ["LogSerial", "setupLogSerial"]
+    },
+    "autogrowbufferstream": {
+      "path": "src/blflc/autogrowbufferstream.h",
+      "purpose": "Buffer utilities for streaming",
+      "exports": ["AutoGrowBufferStream"]
     }
   },
   "web_assets": {
-    "setupPage.html": "Main LED configuration page",
-    "wifiSetup.html": "WiFi and printer setup",
+    "setupPage.html": "Main LED configuration page → /submitConfig",
+    "wifiSetup.html": "WiFi setup → /submitWiFi",
+    "printerSetup.html": "Printer setup → /submitPrinter",
+    "authSetup.html": "Auth setup → /submitAuth",
+    "debugSetup.html": "Debug setup → /submitDebug",
+    "advancedSetup.html": "Advanced setup → /submitHostname",
     "updatePage.html": "OTA firmware update",
     "backupRestore.html": "Config backup/restore",
     "webSerialPage.html": "Debug log viewer",
     "style.css": "Shared CSS styles",
-    "particleCanvas.js": "UI particle effects"
+    "particleCanvas.js": "UI particle effects",
+    "blflc.svg": "Logo",
+    "favicon.png": "Icon"
   },
   "endpoints": {
     "/": { "handler": "handleSetup", "method": "GET", "description": "Main LED setup page" },
-    "/wifi": { "handler": "handleWiFiSetupPage", "method": "GET", "description": "WiFi/printer setup" },
+    "/wifi": { "handler": "handleWiFiSetupPage", "method": "GET", "description": "WiFi setup" },
+    "/printer": { "handler": "handlePrinterPage", "method": "GET", "description": "Printer setup" },
+    "/auth": { "handler": "handleAuthPage", "method": "GET", "description": "Auth setup" },
+    "/debug": { "handler": "handleDebugPage", "method": "GET", "description": "Debug setup" },
+    "/advanced": { "handler": "handleAdvancedPage", "method": "GET", "description": "Advanced setup" },
     "/fwupdate": { "handler": "handleUpdatePage", "method": "GET", "description": "OTA firmware upload" },
     "/backuprestore": { "handler": "handleConfigPage", "method": "GET", "description": "Config backup/restore" },
     "/webserial": { "handler": "handleWebSerialPage", "method": "GET", "description": "Debug log viewer" },
-    "/submitconfig": { "handler": "handleSubmitConfig", "method": "POST", "description": "Save LED config" },
-    "/submitwifi": { "handler": "handleSubmitWiFi", "method": "POST", "description": "Save WiFi config" },
-    "/config": { "handler": "handleGetConfig", "method": "GET", "description": "Get current config" },
-    "/printerconfig": { "handler": "handlePrinterConfigJson", "method": "GET", "description": "Get printer config" },
-    "/ledtest": { "handler": "handleLedTest", "method": "GET", "description": "Trigger LED test" },
+    "/submitConfig": { "handler": "handleSubmitConfig", "method": "POST", "description": "Save LED config" },
+    "/submitWiFi": { "handler": "handleSubmitWiFi", "method": "POST", "description": "Save WiFi config" },
+    "/submitPrinter": { "handler": "handleSubmitPrinter", "method": "POST", "description": "Save printer config" },
+    "/submitAuth": { "handler": "handleSubmitAuth", "method": "POST", "description": "Save auth config" },
+    "/submitDebug": { "handler": "handleSubmitDebug", "method": "POST", "description": "Save debug config" },
+    "/submitHostname": { "handler": "handleSubmitHostname", "method": "POST", "description": "Save hostname" },
+    "/getConfig": { "handler": "handleGetConfig", "method": "GET", "description": "Get current config JSON" },
+    "/config.json": { "handler": "handleConfigJson", "method": "GET", "description": "Get network type info" },
+    "/api/ledtest": { "handler": "handleLedTest", "method": "GET", "description": "Trigger LED test" },
     "/wifiscan": { "handler": "handleWiFiScan", "method": "GET", "description": "Scan WiFi networks" },
     "/printerlist": { "handler": "handlePrinterList", "method": "GET", "description": "List discovered printers" },
-    "/factoryreset": { "handler": "handleFactoryReset", "method": "GET", "description": "Factory reset" }
+    "/factoryreset": { "handler": "handleFactoryReset", "method": "GET", "description": "Wipe all settings" },
+    "/reboot": { "handler": "handleReboot", "method": "GET", "description": "Restart device" }
   },
   "dependencies": {
     "fastled/FastLED": { "version": "^3.7.7", "purpose": "Addressable LED control" },
@@ -87,19 +151,22 @@
     "luc-github/ESP32SSDP": { "version": "1.2.1", "purpose": "SSDP discovery" },
     "ESP32Async/AsyncTCP": { "version": "latest", "purpose": "Async TCP" },
     "ESP32Async/ESPAsyncWebServer": { "version": "latest", "purpose": "Web server" },
-    "mathieucarbou/MycilaWebSerial": { "version": "^8.1.1", "purpose": "Debug serial over web" }
+    "mathieucarbou/MycilaWebSerial": { "version": "^8.1.1", "purpose": "Debug serial over web" },
+    "improv-wifi/sdk-cpp": { "version": "v1.2.5", "purpose": "Improv WiFi provisioning" }
   },
   "build": {
     "commands": {
-      "build": "uv run pio run -e esp32dev",
+      "build_wifi": "uv run pio run -e esp32dev",
+      "build_eth_gledopto": "uv run pio run -e esp32_eth_gledopto",
+      "build_eth_iotorero": "uv run pio run -e esp32_eth_iotorero",
       "upload": "uv run pio run -e esp32dev -t upload",
       "uploadfs": "uv run pio run -e esp32dev -t uploadfs",
       "monitor": "uv run pio device monitor -b 115200",
       "clean": "uv run pio run -e esp32dev -t clean"
     },
     "outputs": {
-      "firmware": ".firmware/BLLC_V{version}.bin",
-      "ota": ".firmware/BLLC_V{version}.bin.ota"
+      "firmware": ".firmware/BLFLC_V{version}.bin",
+      "ota": ".firmware/BLFLC_V{version}.bin.ota"
     },
     "scripts": {
       "pre_build": "pre_build.py",
@@ -111,8 +178,9 @@
     "storage": "LittleFS"
   },
   "enums": {
-    "LedChipType": ["CHIP_WS2812B", "CHIP_SK6812", "CHIP_SK6812_RGBW", "CHIP_APA102", "CHIP_WS2811", "CHIP_NEOPIXEL"],
-    "LedColorOrder": ["ORDER_GRB", "ORDER_RGB", "ORDER_BRG", "ORDER_RBG", "ORDER_BGR", "ORDER_GBR", "ORDER_GRBW", "ORDER_RGBW"],
+    "LedChipType": ["CHIP_WS2812B", "CHIP_SK6812", "CHIP_SK6812_RGBW", "CHIP_APA102", "CHIP_WS2811", "CHIP_NEOPIXEL", "CHIP_WS2814_RGBW"],
+    "LedColorOrder": ["ORDER_GRB", "ORDER_RGB", "ORDER_BRG", "ORDER_RBG", "ORDER_BGR", "ORDER_GBR"],
+    "WhitePlacement": ["W_PLACEMENT_0", "W_PLACEMENT_1", "W_PLACEMENT_2", "W_PLACEMENT_3"],
     "LedPattern": ["PATTERN_SOLID", "PATTERN_BREATHING", "PATTERN_CHASE", "PATTERN_RAINBOW", "PATTERN_PROGRESS"]
   },
   "printer_stages": {
@@ -123,26 +191,45 @@
     "8": "Calibrating extrusion",
     "9": "Scanning bed",
     "10": "First layer inspection",
+    "12": "Calibrating micro lidar",
     "14": "Cleaning nozzle",
     "16": "Paused",
     "30": "Paused",
+    "34": "First layer error (paused)",
+    "35": "Nozzle clog (paused)",
     "255": "IDLE"
   },
-  "constants": {
-    "MAX_LEDS": "defined in leds.h",
-    "MQTT_RETRY_INTERVAL_MS": "MQTT reconnection interval",
-    "MQTT_OFFLINE_TIMEOUT_MS": "Offline detection timeout",
-    "DOOR_DEBOUNCE_MS": "Door switch debounce",
-    "BREATHING_PERIOD_MS": "Breathing pattern cycle",
-    "CHASE_SPEED_MS": "Chase pattern speed",
-    "RAINBOW_SPEED_MS": "Rainbow cycle speed"
+  "hms_override": {
+    "description": "The overridestage variable can override stage for LED behavior",
+    "inactive_value": 999,
+    "example": "HMS code 0x0C0003000003000B → stage 10 (First Layer Inspection)"
   },
+  "led_priority": [
+    "Maintenance/Test/Disco/Progress Bar modes",
+    "Error states (HMS fatal/serious, temperature failures)",
+    "Pause states (stage 16, 30, 34, 35)",
+    "Stage-specific colors (1, 8, 9, 10, 12, 14)",
+    "Idle timeout",
+    "Running/active states",
+    "Finish indication",
+    "LED replication (mirror chamber light)"
+  ],
   "testing": {
     "simulator": "bblp_sim.py"
   },
   "session_memories": [
+    "session-led-and-config-fixes-2025-12",
+    "session-web-ui-overhaul-2025-12",
+    "session-ethernet-support-2025-12",
+    "session-improv-serial-2025-12",
+    "session-progress-bar-fix-2025-12",
+    "session-rgbw-color-order-ui-2025-12",
+    "session-ci-ethernet-release-2025-12",
     "session-improvements-2025-11",
+    "session-cleanup-refactoring-2025-11",
     "session-relay-feature-2025-11",
-    "session-rgbw-fix-2025-11"
+    "session-rgbw-fix-2025-11",
+    "session-ws2814-rgbw-2025-11",
+    "session-printf-crash-fix-2025-11"
   ]
 }
