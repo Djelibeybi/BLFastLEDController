@@ -6,6 +6,17 @@ extern "C"
 {
 #endif
 
+    // Hardware defaults (can be overridden via build flags in platformio.ini)
+    #ifndef DEFAULT_LED_PIN
+    #define DEFAULT_LED_PIN 16
+    #endif
+    #ifndef DEFAULT_RELAY_PIN
+    #define DEFAULT_RELAY_PIN -1
+    #endif
+    #ifndef DEFAULT_RELAY_INVERTED
+    #define DEFAULT_RELAY_INVERTED false
+    #endif
+
     // LED strip types supported by FastLED
     enum LedChipType {
         CHIP_WS2812B = 0,
@@ -57,7 +68,7 @@ extern "C"
         uint8_t colorOrder = ORDER_GRB;
         uint8_t wPlacement = W_PLACEMENT_3;  // W channel position for RGBW strips
         uint16_t ledCount = 30;
-        uint8_t dataPin = 16;
+        uint8_t dataPin = DEFAULT_LED_PIN;
         uint8_t clockPin = 0;  // For APA102 only
     } LedConfig;
 
@@ -205,8 +216,8 @@ extern "C"
         bool ledTestMode = false;
 
         // Relay control for LED power
-        int8_t relayPin = -1;           // GPIO pin for relay (-1 = disabled)
-        bool relayInverted = false;     // If true, relay is active HIGH; default is active LOW
+        int8_t relayPin = DEFAULT_RELAY_PIN;       // GPIO pin for relay (-1 = disabled)
+        bool relayInverted = DEFAULT_RELAY_INVERTED;  // If true, relay is active LOW
 
     } PrinterConfig;
 

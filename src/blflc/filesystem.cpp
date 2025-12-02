@@ -234,7 +234,7 @@ void loadFileSystem()
         printerConfig.ledConfig.colorOrder = json["ledColorOrder"] | ORDER_GRB;
         printerConfig.ledConfig.wPlacement = json["ledWPlacement"] | W_PLACEMENT_3;
         printerConfig.ledConfig.ledCount = json["ledCount"] | 30;
-        printerConfig.ledConfig.dataPin = json["ledDataPin"] | 16;
+        printerConfig.ledConfig.dataPin = json["ledDataPin"] | DEFAULT_LED_PIN;
         printerConfig.ledConfig.clockPin = json["ledClockPin"] | 0;
 
         // Pattern settings (with defaults for migration)
@@ -263,8 +263,8 @@ void loadFileSystem()
         printerConfig.progressBarBackground = hex2rgb(json["progressBgRGB"] | "#000000");
 
         // Relay settings (with defaults for migration)
-        printerConfig.relayPin = json["relayPin"] | -1;
-        printerConfig.relayInverted = json["relayInverted"] | false;
+        printerConfig.relayPin = json["relayPin"] | DEFAULT_RELAY_PIN;
+        printerConfig.relayInverted = json["relayInverted"] | DEFAULT_RELAY_INVERTED;
 
         LogSerial.println(F("[Filesystem] Loaded config"));
     }
