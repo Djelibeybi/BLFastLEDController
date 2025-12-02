@@ -1,0 +1,139 @@
+name: Bug Report
+description: Report a bug or unexpected behavior
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report! Please provide as much detail as possible.
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Prerequisites
+      description: Please confirm the following before submitting
+      options:
+        - label: I have searched existing issues to ensure this bug hasn't already been reported
+          required: true
+        - label: I am using the latest firmware version
+          required: true
+
+  - type: input
+    id: firmware-version
+    attributes:
+      label: Firmware Version
+      description: What firmware version are you running? (shown on web interface)
+      placeholder: "e.g., 3.0.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: board-type
+    attributes:
+      label: ESP32 Board Type
+      description: Which board/build environment are you using?
+      options:
+        - ESP32 WiFi (esp32dev)
+        - Gledopto Elite 2D/4D Ethernet (esp32_eth_gledopto)
+        - IoTorero ESP32 ETH (esp32_eth_iotorero)
+        - Other (please specify in description)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: printer-model
+    attributes:
+      label: Bambu Lab Printer Model
+      description: Which printer are you connecting to?
+      options:
+        - H2 Series (H2S/H2C/H2D)
+        - X1/X1 Carbon
+        - P2S
+        - P1S/P1P
+        - A1/A1 mini
+    validations:
+      required: true
+
+  - type: dropdown
+    id: led-chipset
+    attributes:
+      label: LED Chipset
+      description: What LED chipset are you using?
+      options:
+        - WS2812B
+        - SK6812 (RGB)
+        - SK6812 (RGBW)
+        - WS2811
+        - WS2814 (RGBW)
+        - APA102
+        - NEOPIXEL
+        - Other (please specify in description)
+    validations:
+      required: true
+
+  - type: input
+    id: led-count
+    attributes:
+      label: Number of LEDs
+      description: How many LEDs in your strip?
+      placeholder: "e.g., 60"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is
+      placeholder: Describe the bug...
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the behavior
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: webserial-output
+    attributes:
+      label: WebSerial Monitor Output
+      description: |
+        If applicable, paste relevant WebSerial monitor output here.
+      render: shell
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: If applicable, add screenshots of the web interface or LED behavior
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Add any other context about the problem here
