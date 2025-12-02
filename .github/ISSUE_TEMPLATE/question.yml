@@ -1,0 +1,63 @@
+name: Question
+description: Ask a question about the project
+title: "[Question]: "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have a question? We're happy to help! Please check the README and existing issues first.
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Prerequisites
+      description: Please confirm the following before submitting
+      options:
+        - label: I have read the README and documentation
+          required: true
+        - label: I have searched existing issues for similar questions
+          required: true
+
+  - type: dropdown
+    id: question-type
+    attributes:
+      label: Question Category
+      description: What is your question about?
+      options:
+        - Hardware setup (wiring, components)
+        - Firmware installation/flashing
+        - Configuration/settings
+        - Printer connection (MQTT)
+        - LED behavior/patterns
+        - Web interface
+        - Building from source
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your Question
+      description: What would you like to know?
+      placeholder: Please be as specific as possible...
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Add any context that might help us answer your question
+      placeholder: |
+        - Your setup details
+        - What you've already tried
+        - Screenshots if applicable
+
+  - type: input
+    id: firmware-version
+    attributes:
+      label: Firmware Version (if applicable)
+      description: What firmware version are you running?
+      placeholder: "e.g., 3.0.0"
